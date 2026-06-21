@@ -63,6 +63,7 @@ export default function App() {
   const [callStatus, setCallStatus] = useState<'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected'>('idle');
   const [callTimer, setCallTimer] = useState(0);
   const socketRef = useRef<any>(null);
+  const handleEndCallRef = useRef<(() => void) | null>(null);
 
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
@@ -86,6 +87,9 @@ export default function App() {
     socket.on('call_state', (state: { active: boolean; status: typeof callStatus; timer: number }) => {
       setCallStatus(state.status);
       setCallTimer(state.timer);
+      if (!state.active && state.status === 'idle') {
+        handleEndCallRef.current?.();
+      }
     });
 
     socket.on('call_timer', (timer: number) => {
@@ -774,6 +778,8 @@ export default function App() {
       console.warn('Failed to clear emergency states on hardware:', e);
     }
   }, [handleClear, config.camera1IP, config.camera2IP, config.esp32IP]);
+
+  handleEndCallRef.current = handleEndCall;
 
   // Trigger emergency call on state transition (once per event)
   useEffect(() => {

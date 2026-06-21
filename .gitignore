@@ -31,3 +31,6 @@ Camera-1/CameraWebServer/config.h
 .DS_Store
 *.suo
 *.swp
+
+# Presentation Guide
+presentation_guide.md
