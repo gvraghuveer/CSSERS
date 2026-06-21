@@ -15,6 +15,8 @@ import { ToastStack } from './components/ToastStack';
 import type { AppConfig, GpsData, DeviceStatus, EvidenceItem, LogEvent, Toast } from './types';
 
 import { loadConfig, uid, safeFetch, beep, upscaleImageBlob, makeEvent, fmtDuration } from './utils';
+import { io } from 'socket.io-client';
+import { EmergencyOverlay } from './components/EmergencyOverlay';
 
 
 // ============================================================
@@ -57,6 +59,11 @@ export default function App() {
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
 
+  const [callInitiated, setCallInitiated] = useState(false);
+  const [callStatus, setCallStatus] = useState<'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected'>('idle');
+  const [callTimer, setCallTimer] = useState(0);
+  const socketRef = useRef<any>(null);
+
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
   // Initialize Supabase client
@@ -70,6 +77,25 @@ export default function App() {
       }
     }
   }, []);
+
+  // Initialize Socket.IO connection to backend call service
+  useEffect(() => {
+    const socket = io(config.backendUrl);
+    socketRef.current = socket;
+
+    socket.on('call_state', (state: { active: boolean; status: typeof callStatus; timer: number }) => {
+      setCallStatus(state.status);
+      setCallTimer(state.timer);
+    });
+
+    socket.on('call_timer', (timer: number) => {
+      setCallTimer(timer);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [config.backendUrl]);
 
   // Prevent TS unused variable warning for events
   useEffect(() => {
@@ -738,6 +764,62 @@ export default function App() {
     }
   }, [recordingLabel, startRecording, stopRecording]);
 
+  const handleEndCall = useCallback(async () => {
+    handleClear();
+    try {
+      await safeFetch(`http://${config.camera1IP}/emergency/off`, 1500, { mode: 'no-cors' });
+      await safeFetch(`http://${config.camera2IP}/emergency/off`, 1500, { mode: 'no-cors' });
+      await safeFetch(`http://${config.esp32IP}/emergency/off`, 1500, { mode: 'no-cors' });
+    } catch (e) {
+      console.warn('Failed to clear emergency states on hardware:', e);
+    }
+  }, [handleClear, config.camera1IP, config.camera2IP, config.esp32IP]);
+
+  // Trigger emergency call on state transition (once per event)
+  useEffect(() => {
+    if (emergency) {
+      if (!callInitiated) {
+        setCallInitiated(true);
+        const triggerCall = async () => {
+          let lat = gps?.latitude ?? 12.971598;
+          let lng = gps?.longitude ?? 77.594566;
+          
+          try {
+            const gpsRes = await safeFetch(`http://${config.esp32IP}/gps`, 1500);
+            if (gpsRes.ok) {
+              const gpsData = await gpsRes.json();
+              lat = gpsData.latitude;
+              lng = gpsData.longitude;
+            }
+          } catch (e) {
+            console.warn('GPS fetch failed for emergency call, using fallback:', e);
+          }
+
+          try {
+            await fetch(`${config.backendUrl}/api/start-call`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                pole: 'Pole A',
+                latitude: lat,
+                longitude: lng
+              })
+            });
+          } catch (err) {
+            console.error('Failed to trigger Twilio call on backend:', err);
+          }
+        };
+        triggerCall();
+      }
+    } else {
+      if (callInitiated) {
+        setCallInitiated(false);
+        // Reset call status and tell backend to end
+        fetch(`${config.backendUrl}/api/end-call`, { method: 'POST' }).catch(() => {});
+      }
+    }
+  }, [emergency, callInitiated, config.backendUrl, config.esp32IP]);
+
   const fallbackGps = (() => {
     const found = evidence.find(
       e => typeof e.latitude === 'number' && typeof e.longitude === 'number' && e.latitude !== 0 && e.longitude !== 0
@@ -837,6 +919,19 @@ export default function App() {
           ip={fullscreen === 1 ? config.camera1IP : config.camera2IP}
           status={fullscreen === 1 ? cam1Status : cam2Status}
           onClose={() => setFullscreen(null)}
+        />
+      )}
+
+      {emergency && (
+        <EmergencyOverlay
+          gps={gps}
+          gpsStatus={gpsStatus}
+          camera1IP={config.camera1IP}
+          camera2IP={config.camera2IP}
+          emergencyContact={config.emergencyContact}
+          callStatus={callStatus}
+          callTimer={callTimer}
+          onEndCall={handleEndCall}
         />
       )}
     </>

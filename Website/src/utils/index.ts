@@ -19,7 +19,16 @@ export const makeEvent = (type: EventType, overrides: Partial<Pick<LogEvent, 'ic
 export const loadConfig = (): AppConfig => {
   try {
     const r = localStorage.getItem(CONFIG_KEY);
-    if (r) return { ...DEFAULT_CFG, ...JSON.parse(r) };
+    const parsed = r ? JSON.parse(r) : {};
+    return {
+      ...DEFAULT_CFG,
+      ...parsed,
+      camera1IP: import.meta.env.VITE_CAMERA1_IP || parsed.camera1IP || DEFAULT_CFG.camera1IP,
+      camera2IP: import.meta.env.VITE_CAMERA2_IP || parsed.camera2IP || DEFAULT_CFG.camera2IP,
+      esp32IP: import.meta.env.VITE_ESP32_IP || parsed.esp32IP || DEFAULT_CFG.esp32IP,
+      backendUrl: import.meta.env.VITE_BACKEND_URL || parsed.backendUrl || DEFAULT_CFG.backendUrl,
+      emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || parsed.emergencyContact || DEFAULT_CFG.emergencyContact,
+    };
   } catch {
     // Ignore parsing errors
   }

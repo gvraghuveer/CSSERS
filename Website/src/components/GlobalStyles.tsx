@@ -31,6 +31,12 @@ const GlobalStyles = () => (
       50%       { box-shadow: 0 0 0 1px #f85149, 0 4px 36px rgba(248,81,73,0.22); }
     }
     .anim-card-throb { animation: card-throb 2s ease-in-out infinite; }
+    
+    @keyframes border-pulse {
+      0%, 100% { border-color: rgba(248, 81, 73, 0.45); box-shadow: inset 0 0 80px rgba(248, 81, 73, 0.2); }
+      50%       { border-color: rgba(248, 81, 73, 0.8); box-shadow: inset 0 0 100px rgba(248, 81, 73, 0.35); }
+    }
+    .anim-border-pulse { animation: border-pulse 3.5s ease-in-out infinite; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; }

@@ -36,6 +36,8 @@ export interface AppConfig {
   esp32IP: string;
   pollingInterval: number;
   audioAlerts: boolean;
+  backendUrl: string;
+  emergencyContact: string;
 }
 
 export interface EvidenceItem {

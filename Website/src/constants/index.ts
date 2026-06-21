@@ -9,7 +9,9 @@ export const DEFAULT_CFG: AppConfig = {
   camera2IP: import.meta.env.VITE_CAMERA2_IP || '192.168.1.7',
   esp32IP: import.meta.env.VITE_ESP32_IP || '192.168.1.100',
   pollingInterval: 5,
-  audioAlerts: true
+  audioAlerts: true,
+  backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
+  emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || '+1234567890'
 };
 
 // Polling interval options for settings
