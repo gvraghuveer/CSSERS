@@ -21,6 +21,10 @@ Website/.env.local
 logs/
 *.log
 
+# Generated Arduino Configs
+ESP32/config.h
+Camera-1/CameraWebServer/config.h
+
 # Editor configurations
 .vscode/
 .idea/
