@@ -1,0 +1,29 @@
+# Dependency directories
+node_modules/
+Website/node_modules/
+
+# Build outputs
+dist/
+Website/dist/
+*.tmp
+*.tsbuildinfo
+
+# Local env files (contains sensitive Supabase & Google Drive API keys)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+Website/.env
+Website/.env.local
+
+# Logs
+logs/
+*.log
+
+# Editor configurations
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.swp
