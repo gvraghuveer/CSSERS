@@ -49,6 +49,15 @@ VITE_APPS_SCRIPT_URL=your-google-apps-script-deployment-url
 
 *Note: The frontend configures the device IP addresses (ESP32 and ESP32-CAMs) inside the dashboard's settings panel, which is stored in local storage.*
 
+### 2. Microcontrollers (Arduino C++)
+To connect your hardware to the local network and each other, update the following configurations:
+
+* **Main Controller ([ESP32.ino](file:///d:/Codes/IoT%20Project/CrimeShield%20-%20Smart%20Emergency%20Response%20System/ESP32/ESP32.ino)):**
+  * Lines 9–10: Update the Wi-Fi credentials (`ssid` and `password`).
+  * Lines 12–13: Update `CAMERA_1_IP` and `CAMERA_2_IP` with the IP addresses of your camera modules.
+* **Camera Modules ([CameraWebServer.ino](file:///d:/Codes/IoT%20Project/CrimeShield%20-%20Smart%20Emergency%20Response%20System/Camera-1/CameraWebServer/CameraWebServer.ino)):**
+  * Lines 12–13: Update the Wi-Fi credentials (`ssid` and `password`).
+
 ---
 
 ## 🛠️ Setup & Installation
