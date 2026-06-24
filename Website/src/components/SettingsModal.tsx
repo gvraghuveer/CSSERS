@@ -73,10 +73,6 @@ export const SettingsModal = ({
             ['Camera 2 IP', 'camera2IP', '192.168.1.7'],
             ['ESP32 IP', 'esp32IP', '192.168.1.100'],
             ['Backend URL', 'backendUrl', 'http://localhost:3001'],
-            ['Emergency Contact', 'emergencyContact', '+1234567890'],
-            ['Pole Name', 'poleName', 'Pole A'],
-            ['Fallback Latitude', 'fallbackLatitude', '12.971598'],
-            ['Fallback Longitude', 'fallbackLongitude', '77.594566'],
           ] as const).map(([label, key, placeholder]) => (
             <div key={key}>
               <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
@@ -90,6 +86,43 @@ export const SettingsModal = ({
               />
             </div>
           ))}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
+              Emergency Contact
+            </label>
+            <input
+              className="crimeshield-input"
+              value={import.meta.env.VITE_EMERGENCY_CONTACT || config.emergencyContact}
+              readOnly
+              disabled
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                borderColor: 'rgba(255,255,255,0.05)',
+                color: '#8b949e',
+                cursor: 'not-allowed'
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
+              Pole Name
+            </label>
+            <input
+              className="crimeshield-input"
+              value={import.meta.env.VITE_POLE_NAME || config.poleName}
+              readOnly
+              disabled
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                borderColor: 'rgba(255,255,255,0.05)',
+                color: '#8b949e',
+                cursor: 'not-allowed'
+              }}
+            />
+            <div style={{ fontSize: 10, color: '#8b949e', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>
+              * Static environment values (configured in system .env)
+            </div>
+          </div>
           <div>
             <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
               Poll Interval
