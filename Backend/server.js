@@ -101,7 +101,8 @@ app.post('/api/start-call', async (req, res) => {
         headers: {
           'apikey': process.env.SUPABASE_KEY,
           'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         }
       });
 
