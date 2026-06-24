@@ -12,7 +12,9 @@ export const DEFAULT_CFG: AppConfig = {
   audioAlerts: true,
   backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
   emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || '+1234567890',
-  poleName: import.meta.env.VITE_POLE_NAME || 'Pole A'
+  poleName: import.meta.env.VITE_POLE_NAME || 'Pole A',
+  fallbackLatitude: Number(import.meta.env.VITE_FALLBACK_LATITUDE) || 12.971598,
+  fallbackLongitude: Number(import.meta.env.VITE_FALLBACK_LONGITUDE) || 77.594566
 };
 
 // Polling interval options for settings

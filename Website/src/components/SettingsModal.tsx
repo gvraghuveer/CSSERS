@@ -16,13 +16,20 @@ export const SettingsModal = ({
   onSave,
   onClose,
 }: SettingsModalProps) => {
-  const [local, setLocal] = useState<AppConfig>({ ...config });
-  const set = <K extends keyof AppConfig>(k: K, v: AppConfig[K]) =>
-    setLocal(p => ({ ...p, [k]: v }));
+  const [local, setLocal] = useState<any>({ ...config });
+  const set = (k: string, v: any) =>
+    setLocal((p: any) => ({ ...p, [k]: v }));
 
   const handleSave = () => {
-    saveConfig(local);
-    onSave(local);
+    const finalConfig: AppConfig = {
+      ...local,
+      fallbackLatitude: parseFloat(local.fallbackLatitude) || 12.971598,
+      fallbackLongitude: parseFloat(local.fallbackLongitude) || 77.594566,
+      pollingInterval: Number(local.pollingInterval),
+      audioAlerts: Boolean(local.audioAlerts)
+    };
+    saveConfig(finalConfig);
+    onSave(finalConfig);
     onClose();
   };
 
@@ -68,6 +75,8 @@ export const SettingsModal = ({
             ['Backend URL', 'backendUrl', 'http://localhost:3001'],
             ['Emergency Contact', 'emergencyContact', '+1234567890'],
             ['Pole Name', 'poleName', 'Pole A'],
+            ['Fallback Latitude', 'fallbackLatitude', '12.971598'],
+            ['Fallback Longitude', 'fallbackLongitude', '77.594566'],
           ] as const).map(([label, key, placeholder]) => (
             <div key={key}>
               <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>
@@ -75,7 +84,7 @@ export const SettingsModal = ({
               </label>
               <input
                 className="crimeshield-input"
-                value={local[key]}
+                value={local[key] !== undefined ? String(local[key]) : ''}
                 placeholder={placeholder}
                 onChange={e => set(key, e.target.value)}
               />

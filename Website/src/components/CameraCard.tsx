@@ -230,15 +230,17 @@ export const CameraCard = ({
                 )}
               </button>
             )}
-            <button
-              onClick={onSnapshot}
-              title="Future: Save to SD Card"
-              aria-label={`Snapshot ${label}`}
-              className="crimeshield-btn crimeshield-btn-ghost"
-              style={{ padding: '5px 10px', fontSize: 11 }}
-            >
-              <Camera size={12} style={{ marginRight: 4 }} /> Snapshot
-            </button>
+            {status === 'online' && (
+              <button
+                onClick={onSnapshot}
+                title="Future: Save to SD Card"
+                aria-label={`Snapshot ${label}`}
+                className="crimeshield-btn crimeshield-btn-ghost"
+                style={{ padding: '5px 10px', fontSize: 11 }}
+              >
+                <Camera size={12} style={{ marginRight: 4 }} /> Snapshot
+              </button>
+            )}
           </div>
         </div>
       </div>

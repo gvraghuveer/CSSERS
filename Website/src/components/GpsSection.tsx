@@ -5,9 +5,11 @@ interface GpsSectionProps {
   gpsStatus: 'online' | 'offline' | 'connecting';
   emergency: boolean;
   fallbackGps?: { latitude: number; longitude: number } | null;
+  fallbackLatitude: number;
+  fallbackLongitude: number;
 }
 
-export const GpsSection = ({ gps, gpsStatus, emergency, fallbackGps }: GpsSectionProps) => {
+export const GpsSection = ({ gps, gpsStatus, emergency, fallbackGps, fallbackLatitude, fallbackLongitude }: GpsSectionProps) => {
   const [secsSince, setSecsSince] = useState(0);
   const [mapKey, setMapKey] = useState(0);
   const prev = useRef<{ lat: number; lng: number } | null>(null);
@@ -29,9 +31,8 @@ export const GpsSection = ({ gps, gpsStatus, emergency, fallbackGps }: GpsSectio
     }
   }, [gps, fallbackGps]);
 
-  const DEMO_BASE = { lat: 12.971598, lng: 77.594566 };
-  const lat = gps?.latitude ?? fallbackGps?.latitude ?? DEMO_BASE.lat;
-  const lng = gps?.longitude ?? fallbackGps?.longitude ?? DEMO_BASE.lng;
+  const lat = gps?.latitude && gps.latitude !== 0 ? gps.latitude : (fallbackGps?.latitude ?? fallbackLatitude);
+  const lng = gps?.longitude && gps.longitude !== 0 ? gps.longitude : (fallbackGps?.longitude ?? fallbackLongitude);
   const d = 0.008;
 
   return (

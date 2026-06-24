@@ -29,6 +29,8 @@ export const loadConfig = (): AppConfig => {
       backendUrl: import.meta.env.VITE_BACKEND_URL || parsed.backendUrl || DEFAULT_CFG.backendUrl,
       emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || parsed.emergencyContact || DEFAULT_CFG.emergencyContact,
       poleName: import.meta.env.VITE_POLE_NAME || parsed.poleName || DEFAULT_CFG.poleName,
+      fallbackLatitude: Number(import.meta.env.VITE_FALLBACK_LATITUDE) || parsed.fallbackLatitude || DEFAULT_CFG.fallbackLatitude,
+      fallbackLongitude: Number(import.meta.env.VITE_FALLBACK_LONGITUDE) || parsed.fallbackLongitude || DEFAULT_CFG.fallbackLongitude,
     };
   } catch {
     // Ignore parsing errors

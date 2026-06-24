@@ -39,6 +39,8 @@ export interface AppConfig {
   backendUrl: string;
   emergencyContact: string;
   poleName: string;
+  fallbackLatitude: number;
+  fallbackLongitude: number;
 }
 
 export interface EvidenceItem {
@@ -101,6 +103,8 @@ export interface GpsSectionProps {
   gpsStatus: DeviceStatus;
   emergency: boolean;
   fallbackGps?: { latitude: number; longitude: number } | null;
+  fallbackLatitude: number;
+  fallbackLongitude: number;
 }
 
 export interface EvidenceLogProps {

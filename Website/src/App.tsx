@@ -378,7 +378,7 @@ export default function App() {
 
     // 2. Fetch GPS coordinates once for all targets
     addToast({ borderColor: '#58a6ff', bg: 'rgba(88,166,255,0.06)', title: 'GPS Sync', message: 'Fetching GPS...' });
-    let gpsData = { latitude: 12.971598, longitude: 77.594566, satellites: 7, valid: true };
+    let gpsData = { latitude: config.fallbackLatitude, longitude: config.fallbackLongitude, satellites: 7, valid: true };
     try {
       const gpsResponse = await fetch(`http://${config.esp32IP}/gps`);
       if (gpsResponse.ok) {
@@ -387,7 +387,7 @@ export default function App() {
     } catch (e) {
       console.warn('GPS data fetch failed, using fallback:', e);
       addToast({ borderColor: '#d29922', bg: 'rgba(210,153,34,0.06)', title: 'GPS Sync', message: 'GPS Unavailable' });
-      if (gps) {
+      if (gps && gps.latitude !== 0 && gps.longitude !== 0) {
         gpsData = { latitude: gps.latitude, longitude: gps.longitude, satellites: 5, valid: true };
       }
     }
@@ -665,7 +665,7 @@ export default function App() {
   const handleUploadRecording = async (blob: Blob, label: string) => {
     addToast({ borderColor: '#58a6ff', bg: 'rgba(88,166,255,0.06)', title: 'Cloud Upload', message: 'Uploading Recording...' });
     let driveUrl = "";
-    let gpsData = { latitude: 12.971598, longitude: 77.594566, satellites: 7, valid: true };
+    let gpsData = { latitude: config.fallbackLatitude, longitude: config.fallbackLongitude, satellites: 7, valid: true };
 
     try {
       const gpsResponse = await fetch(`http://${config.esp32IP}/gps`);
@@ -679,7 +679,7 @@ export default function App() {
         };
       }
     } catch {
-      if (gps) {
+      if (gps && gps.latitude !== 0 && gps.longitude !== 0) {
         gpsData = { latitude: gps.latitude, longitude: gps.longitude, satellites: 5, valid: true };
       }
     }
@@ -787,8 +787,8 @@ export default function App() {
       if (!callInitiated) {
         setCallInitiated(true);
         const triggerCall = async () => {
-          let lat = gps?.latitude ?? 12.971598;
-          let lng = gps?.longitude ?? 77.594566;
+          let lat = (gps && gps.latitude !== 0) ? gps.latitude : config.fallbackLatitude;
+          let lng = (gps && gps.longitude !== 0) ? gps.longitude : config.fallbackLongitude;
           
           try {
             const gpsRes = await safeFetch(`http://${config.esp32IP}/gps`, 1500);
@@ -901,7 +901,14 @@ export default function App() {
 
           {/* Section 3: GPS */}
           <div style={{ minHeight: 0 }}>
-            <GpsSection gps={gps} gpsStatus={gpsStatus} emergency={emergency} fallbackGps={fallbackGps} />
+            <GpsSection
+              gps={gps}
+              gpsStatus={gpsStatus}
+              emergency={emergency}
+              fallbackGps={fallbackGps}
+              fallbackLatitude={config.fallbackLatitude}
+              fallbackLongitude={config.fallbackLongitude}
+            />
           </div>
 
           {/* Section 4: Evidence Log */}
