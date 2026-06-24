@@ -11,7 +11,8 @@ export const DEFAULT_CFG: AppConfig = {
   pollingInterval: 5,
   audioAlerts: true,
   backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
-  emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || '+1234567890'
+  emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || '+1234567890',
+  poleName: import.meta.env.VITE_POLE_NAME || 'Pole A'
 };
 
 // Polling interval options for settings

@@ -1,22 +1,11 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { saveConfig } from '../utils';
+import type { AppConfig } from '../types';
 
 interface SettingsModalProps {
-  config: {
-    camera1IP: string;
-    camera2IP: string;
-    esp32IP: string;
-    pollingInterval: number;
-    audioAlerts: boolean;
-  };
-  onSave: (config: {
-    camera1IP: string;
-    camera2IP: string;
-    esp32IP: string;
-    pollingInterval: number;
-    audioAlerts: boolean;
-  }) => void;
+  config: AppConfig;
+  onSave: (config: AppConfig) => void;
   onClose: () => void;
 }
 
@@ -27,8 +16,8 @@ export const SettingsModal = ({
   onSave,
   onClose,
 }: SettingsModalProps) => {
-  const [local, setLocal] = useState({ ...config });
-  const set = <K extends keyof typeof local>(k: K, v: typeof local[K]) =>
+  const [local, setLocal] = useState<AppConfig>({ ...config });
+  const set = <K extends keyof AppConfig>(k: K, v: AppConfig[K]) =>
     setLocal(p => ({ ...p, [k]: v }));
 
   const handleSave = () => {
@@ -73,9 +62,12 @@ export const SettingsModal = ({
         {/* Fields */}
         <div className="px-5 py-5 flex flex-col gap-4">
           {([
-            ['Camera 1 IP', 'camera1IP', '192.168.1.101'],
-            ['Camera 2 IP', 'camera2IP', '192.168.1.102'],
+            ['Camera 1 IP', 'camera1IP', '10.200.21.145'],
+            ['Camera 2 IP', 'camera2IP', '192.168.1.7'],
             ['ESP32 IP', 'esp32IP', '192.168.1.100'],
+            ['Backend URL', 'backendUrl', 'http://localhost:3001'],
+            ['Emergency Contact', 'emergencyContact', '+1234567890'],
+            ['Pole Name', 'poleName', 'Pole A'],
           ] as const).map(([label, key, placeholder]) => (
             <div key={key}>
               <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>

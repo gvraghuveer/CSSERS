@@ -77,26 +77,70 @@ app.post('/api/start-call', async (req, res) => {
     return res.status(400).json({ error: 'Missing required parameter: pole' });
   }
 
-  // Parse coordinates safely (handles null, undefined, or invalid input)
-  const parsedLat = Number(latitude);
-  const parsedLng = Number(longitude);
-  const safeLat = isNaN(parsedLat) || latitude === null ? 0 : parsedLat;
-  const safeLng = isNaN(parsedLng) || longitude === null ? 0 : parsedLng;
-
   // Prevent duplicate calls
   if (callState.active) {
     return res.status(400).json({ error: 'An emergency call is already active or in progress' });
   }
 
-  console.log(`[CrimeShield] Initiating call for ${pole} (Lat: ${safeLat}, Lng: ${safeLng})`);
+  // Parse default/fallback coordinates safely
+  const parsedLat = Number(latitude);
+  const parsedLng = Number(longitude);
+  let finalLat = isNaN(parsedLat) || latitude === null ? 0 : parsedLat;
+  let finalLng = isNaN(parsedLng) || longitude === null ? 0 : parsedLng;
+  const finalPole = pole;
+
+  console.log(`[CrimeShield] Initiating call for ${finalPole}. Fallback Coordinates (Lat: ${finalLat}, Lng: ${finalLng})`);
+
+  // Query Supabase for the latest valid GPS coordinates if configured
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+    try {
+      const supabaseQueryUrl = `${process.env.SUPABASE_URL}/rest/v1/events?select=latitude,longitude&order=created_at.desc&limit=5`;
+      console.log(`[CrimeShield] Querying Supabase events: ${supabaseQueryUrl}`);
+      const response = await fetch(supabaseQueryUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': process.env.SUPABASE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const eventsList = await response.json();
+        if (Array.isArray(eventsList)) {
+          const validEvent = eventsList.find(e => {
+            const latVal = Number(e.latitude);
+            const lngVal = Number(e.longitude);
+            return !isNaN(latVal) && latVal !== 0 && !isNaN(lngVal) && lngVal !== 0;
+          });
+
+          if (validEvent) {
+            finalLat = Number(validEvent.latitude);
+            finalLng = Number(validEvent.longitude);
+            console.log(`[CrimeShield] Dynamic GPS Coords resolved from Supabase: Lat ${finalLat}, Lng ${finalLng}`);
+          } else {
+            console.log('[CrimeShield] No events with valid non-zero GPS coordinates found in the latest 5 Supabase events. Using fallback.');
+          }
+        }
+      } else {
+        console.error(`[CrimeShield] Supabase REST API returned error status: ${response.status} ${response.statusText}`);
+      }
+    } catch (err) {
+      console.error('[CrimeShield] Error fetching coordinates from Supabase events:', err);
+    }
+  } else {
+    console.log('[CrimeShield] Supabase URL/Key not configured. Skipping database coordinate lookup.');
+  }
+
+  console.log(`[CrimeShield] Triggering emergency response for ${finalPole} using Lat: ${finalLat}, Lng: ${finalLng}`);
 
   callState = {
     active: true,
     status: 'initiating',
     timer: 0,
-    pole,
-    latitude: safeLat,
-    longitude: safeLng
+    pole: finalPole,
+    latitude: finalLat,
+    longitude: finalLng
   };
   io.emit('call_state', callState);
 
@@ -106,8 +150,8 @@ app.post('/api/start-call', async (req, res) => {
       const publicUrl = rawPublicUrl.replace(/\/$/, '');
 
       // 1. Send SMS automatically in the background
-      const googleMapsLink = `https://maps.google.com/?q=${safeLat},${safeLng}`;
-      const messageBody = `CrimeShield ALERT: Emergency reported at ${pole}.\nLocation: ${googleMapsLink}`;
+      const googleMapsLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
+      const messageBody = `CrimeShield ALERT: Emergency reported at ${finalPole}.\nLocation: ${googleMapsLink}`;
 
       twilioClient.messages.create({
         body: messageBody,
@@ -123,8 +167,8 @@ app.post('/api/start-call', async (req, res) => {
       const twiml = `
         <Response>
           <Say voice="alice" loop="2">
-            Emergency alert triggered at ${pole}. 
-            Location coordinates are: latitude ${safeLat.toFixed(6)}, longitude ${safeLng.toFixed(6)}. 
+            Emergency alert triggered at ${finalPole}. 
+            Location coordinates are: latitude ${finalLat.toFixed(6)}, longitude ${finalLng.toFixed(6)}. 
             A text message with the Google Maps link has been sent to your phone.
             Please check the Crime Shield dispatch dashboard immediately.
           </Say>

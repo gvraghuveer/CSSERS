@@ -38,6 +38,7 @@ export interface AppConfig {
   audioAlerts: boolean;
   backendUrl: string;
   emergencyContact: string;
+  poleName: string;
 }
 
 export interface EvidenceItem {

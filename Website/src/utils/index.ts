@@ -28,6 +28,7 @@ export const loadConfig = (): AppConfig => {
       esp32IP: import.meta.env.VITE_ESP32_IP || parsed.esp32IP || DEFAULT_CFG.esp32IP,
       backendUrl: import.meta.env.VITE_BACKEND_URL || parsed.backendUrl || DEFAULT_CFG.backendUrl,
       emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || parsed.emergencyContact || DEFAULT_CFG.emergencyContact,
+      poleName: import.meta.env.VITE_POLE_NAME || parsed.poleName || DEFAULT_CFG.poleName,
     };
   } catch {
     // Ignore parsing errors

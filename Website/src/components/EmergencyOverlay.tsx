@@ -24,6 +24,7 @@ interface EmergencyOverlayProps {
   callStatus: 'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected';
   callTimer: number;
   onEndCall: () => void;
+  poleName: string;
 }
 
 export const EmergencyOverlay = ({
@@ -34,7 +35,8 @@ export const EmergencyOverlay = ({
   emergencyContact,
   callStatus,
   callTimer,
-  onEndCall
+  onEndCall,
+  poleName
 }: EmergencyOverlayProps) => {
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
@@ -395,7 +397,7 @@ export const EmergencyOverlay = ({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#3fb950]" />
-            Pole: <span className="text-white">Pole A</span>
+            Pole: <span className="text-white">{poleName}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#3fb950]" />

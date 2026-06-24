@@ -806,7 +806,7 @@ export default function App() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                pole: 'Pole A',
+                pole: config.poleName,
                 latitude: lat,
                 longitude: lng
               })
@@ -938,6 +938,7 @@ export default function App() {
           callStatus={callStatus}
           callTimer={callTimer}
           onEndCall={handleEndCall}
+          poleName={config.poleName}
         />
       )}
     </>
