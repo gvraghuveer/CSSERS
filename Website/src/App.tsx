@@ -910,6 +910,7 @@ export default function App() {
               items={evidence}
               onCapture={() => handleCaptureEvidence()}
               isCapturing={isCapturing}
+              camerasActive={cam1Status === 'online' || cam2Status === 'online'}
             />
           </div>
         </main>
