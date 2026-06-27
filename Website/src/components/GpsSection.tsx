@@ -57,7 +57,7 @@ export const GpsSection = ({ gps, gpsStatus, emergency, fallbackGps, fallbackLat
 
         <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
           {/* Map */}
-          <div className="map-clip" style={{ flex: 1, minHeight: 0, background: '#0d1117' }}>
+          <div className="map-clip" style={{ flex: 1, minHeight: 0, background: '#0d1117', position: 'relative' }}>
             <iframe
               key={mapKey}
               src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng-d},${lat-d},${lng+d},${lat+d}&layer=mapnik&marker=${lat},${lng}`}
@@ -65,6 +65,40 @@ export const GpsSection = ({ gps, gpsStatus, emergency, fallbackGps, fallbackLat
               style={{ width: '100%', height: '100%', border: 'none', display: 'block', filter: 'invert(0.92) hue-rotate(180deg) saturate(1.1) brightness(0.88)' }}
               loading="lazy"
             />
+            {/* Recenter Button */}
+            <button
+              onClick={() => setMapKey(k => k + 1)}
+              className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all duration-200"
+              style={{
+                background: 'rgba(28, 33, 40, 0.85)',
+                borderColor: '#444c56',
+                color: '#adbac7',
+                backdropFilter: 'blur(4px)',
+                cursor: 'pointer',
+                zIndex: 10,
+                fontFamily: 'Inter, sans-serif'
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = '#22272e';
+                (e.currentTarget as HTMLButtonElement).style.color = '#e6edf3';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = '#768390';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(28, 33, 40, 0.85)';
+                (e.currentTarget as HTMLButtonElement).style.color = '#adbac7';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = '#444c56';
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+              </svg>
+              Recenter
+            </button>
           </div>
 
           {/* Readout panel */}
