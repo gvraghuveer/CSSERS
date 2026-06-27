@@ -312,8 +312,7 @@ app.post('/api/twilio/call-status', (req, res) => {
   const callStatus = req.body.CallStatus;
   console.log(`[CrimeShield] Twilio Call Status Update: ${callStatus}`);
 
-  if (callStatus === 'completed' || callStatus === 'failed' || callStatus === 'busy' || callStatus === 'no-answer' || callStatus === 'canceled') {
-    console.log(`[CrimeShield] Call ended physically. Resetting state.`);
+  const resetCallState = () => {
     callState = {
       active: false,
       status: 'idle',
@@ -323,6 +322,32 @@ app.post('/api/twilio/call-status', (req, res) => {
       longitude: null
     };
     io.emit('call_state', callState);
+  };
+
+  const triggerSafetyTimeout = () => {
+    setTimeout(() => {
+      if (callState.active && (callState.status === 'rejected' || callState.status === 'failed')) {
+        console.log('[CrimeShield] Safety timeout: Resetting rejected/failed call state to idle.');
+        resetCallState();
+      }
+    }, 8000);
+  };
+
+  if (callStatus === 'busy' || callStatus === 'no-answer') {
+    console.log(`[CrimeShield] Call rejected/busy. Updating state to rejected.`);
+    callState.status = 'rejected';
+    callState.active = true;
+    io.emit('call_state', callState);
+    triggerSafetyTimeout();
+  } else if (callStatus === 'failed') {
+    console.log(`[CrimeShield] Call failed. Updating state to failed.`);
+    callState.status = 'failed';
+    callState.active = true;
+    io.emit('call_state', callState);
+    triggerSafetyTimeout();
+  } else if (callStatus === 'completed' || callStatus === 'canceled') {
+    console.log(`[CrimeShield] Call ended physically. Resetting state.`);
+    resetCallState();
   } else if (callStatus === 'answered' || callStatus === 'in-progress') {
     callState.status = 'connected';
     io.emit('call_state', callState);

@@ -60,7 +60,7 @@ export default function App() {
   const recordingTimerRef = useRef<number | null>(null);
 
   const [callInitiated, setCallInitiated] = useState(false);
-  const [callStatus, setCallStatus] = useState<'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected'>('idle');
+  const [callStatus, setCallStatus] = useState<'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected' | 'rejected' | 'busy' | 'failed'>('idle');
   const [callTimer, setCallTimer] = useState(0);
   const socketRef = useRef<any>(null);
   const handleEndCallRef = useRef<(() => void) | null>(null);

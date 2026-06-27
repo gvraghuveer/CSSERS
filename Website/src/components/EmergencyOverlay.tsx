@@ -17,7 +17,7 @@ interface EmergencyOverlayProps {
   camera1IP: string;
   camera2IP: string;
   emergencyContact: string;
-  callStatus: 'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected';
+  callStatus: 'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected' | 'rejected' | 'busy' | 'failed';
   callTimer: number;
   onEndCall: () => void;
   poleName: string;
@@ -37,6 +37,16 @@ export const EmergencyOverlay = ({
   const [cam1Error, setCam1Error] = useState(false);
   const [cam2Error, setCam2Error] = useState(false);
   const [sequenceStep, setSequenceStep] = useState(0);
+
+  // Auto-close overlay if call is rejected, busy, or failed after 5 seconds
+  useEffect(() => {
+    if (callStatus === 'rejected' || callStatus === 'busy' || callStatus === 'failed') {
+      const timer = setTimeout(() => {
+        onEndCall();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [callStatus, onEndCall]);
 
   // Local step sequencer to show the initial check flow nicely
   useEffect(() => {
@@ -72,6 +82,10 @@ export const EmergencyOverlay = ({
   }, [callStatus]);
 
   const getSequenceLabel = () => {
+    if (callStatus === 'rejected') return 'Call Rejected / Declined';
+    if (callStatus === 'busy') return 'Line Busy / Rejected';
+    if (callStatus === 'failed') return 'Call Connection Failed';
+
     switch (sequenceStep) {
       case 0: return 'Emergency Detected';
       case 1: return 'Collecting GPS Data...';
@@ -83,6 +97,7 @@ export const EmergencyOverlay = ({
   };
 
   const getProgressBarWidth = () => {
+    if (callStatus === 'rejected' || callStatus === 'busy' || callStatus === 'failed') return '100%';
     return `${(sequenceStep / 4) * 100}%`;
   };
 
@@ -156,7 +171,25 @@ export const EmergencyOverlay = ({
           {/* Central Call Wave & Pulsing Area */}
           <div className="flex flex-col items-center justify-center py-6">
             <AnimatePresence mode="wait">
-              {sequenceStep === 4 ? (
+              {callStatus === 'rejected' || callStatus === 'busy' || callStatus === 'failed' ? (
+                // Rejected / Failed state: Warning pulser
+                <motion.div
+                  key="call-failed-pulser"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  className="relative flex items-center justify-center w-28 h-28"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+                    className="absolute inset-0 rounded-full border-2 border-[#f85149] pointer-events-none"
+                  />
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#f85149]/20 to-[#f85149]/40 border border-[#f85149] flex items-center justify-center shadow-[0_0_25px_rgba(248,81,73,0.25)]">
+                    <PhoneOff className="w-6 h-6 text-[#f85149]" />
+                  </div>
+                </motion.div>
+              ) : sequenceStep === 4 ? (
                 // Connected state: Voice Waveform
                 <motion.div 
                   key="connected-waveform"
@@ -225,7 +258,11 @@ export const EmergencyOverlay = ({
           {/* Flow Progress Bar */}
           <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden mb-6">
             <div 
-              className="bg-gradient-to-r from-[#f85149] to-[#ff7b72] h-full transition-all duration-500 ease-out" 
+              className={`h-full transition-all duration-500 ease-out ${
+                callStatus === 'rejected' || callStatus === 'busy' || callStatus === 'failed'
+                  ? 'bg-[#f85149]'
+                  : 'bg-gradient-to-r from-[#f85149] to-[#ff7b72]'
+              }`} 
               style={{ width: getProgressBarWidth() }}
             />
           </div>
