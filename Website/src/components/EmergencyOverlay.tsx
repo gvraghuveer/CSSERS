@@ -3,10 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Phone, 
   PhoneOff, 
-  Volume2, 
-  VolumeX, 
-  Mic, 
-  MicOff, 
   MapPin, 
   ShieldAlert, 
   Satellite, 
@@ -38,8 +34,6 @@ export const EmergencyOverlay = ({
   onEndCall,
   poleName
 }: EmergencyOverlayProps) => {
-  const [muted, setMuted] = useState(false);
-  const [speakerOn, setSpeakerOn] = useState(true);
   const [cam1Error, setCam1Error] = useState(false);
   const [cam2Error, setCam2Error] = useState(false);
   const [sequenceStep, setSequenceStep] = useState(0);
@@ -238,18 +232,6 @@ export const EmergencyOverlay = ({
 
           {/* Call action buttons */}
           <div className="flex items-center justify-center gap-6">
-            {/* Mute Button */}
-            <button
-              onClick={() => setMuted(!muted)}
-              className={`p-3.5 rounded-full border transition-all duration-200 ${
-                muted 
-                  ? 'bg-[#f85149]/20 border-[#f85149] text-[#f85149]' 
-                  : 'bg-white/5 border-white/10 text-[#7d8590] hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {muted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
-
             {/* End Call Button */}
             <button
               onClick={onEndCall}
@@ -257,18 +239,6 @@ export const EmergencyOverlay = ({
             >
               <PhoneOff className="w-5 h-5" />
               Disconnect
-            </button>
-
-            {/* Speaker Button */}
-            <button
-              onClick={() => setSpeakerOn(!speakerOn)}
-              className={`p-3.5 rounded-full border transition-all duration-200 ${
-                speakerOn 
-                  ? 'bg-[#58a6ff]/20 border-[#58a6ff] text-[#58a6ff]' 
-                  : 'bg-white/5 border-white/10 text-[#7d8590] hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {speakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
             </button>
           </div>
 
