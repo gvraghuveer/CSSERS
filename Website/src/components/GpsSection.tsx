@@ -68,7 +68,7 @@ export const GpsSection = ({ gps, gpsStatus, emergency, fallbackGps, fallbackLat
             {/* Recenter Button */}
             <button
               onClick={() => setMapKey(k => k + 1)}
-              className="absolute top-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all duration-200"
+              className="absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all duration-200"
               style={{
                 background: 'rgba(28, 33, 40, 0.85)',
                 borderColor: '#444c56',
