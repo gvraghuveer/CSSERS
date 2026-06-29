@@ -944,7 +944,6 @@ export default function App() {
           gpsStatus={gpsStatus}
           camera1IP={config.camera1IP}
           camera2IP={config.camera2IP}
-          emergencyContact={config.emergencyContact}
           callStatus={callStatus}
           callTimer={callTimer}
           callResponder={callResponder}

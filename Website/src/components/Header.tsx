@@ -34,23 +34,21 @@ export const Header = ({ emergency, onSettings }: HeaderProps) => {
     >
       {/* ── LEFT: Brand ── */}
       <div className="flex items-center gap-3">
-        {/* Icon badge */}
-        <div
-          className="flex items-center justify-center rounded-xl"
+        {/* Logo Image */}
+        <img
+          src="/logo.png"
+          alt="CrimeShield Logo"
           style={{
-            width: 40, height: 40,
-            background: emergency
-              ? 'linear-gradient(135deg, #2d0e0e, #3d1212)'
-              : 'linear-gradient(135deg, #0d2318, #0a2820)',
-            border: `1px solid ${emergency ? '#f8514960' : '#3fb95040'}`,
-            boxShadow: emergency ? '0 0 12px rgba(248,81,73,0.25)' : '0 0 12px rgba(63,185,80,0.15)',
-            transition: 'all 0.4s',
+            width: 40,
+            height: 40,
+            objectFit: 'contain',
+            borderRadius: '8px',
+            border: `1px solid ${emergency ? '#f8514960' : '#30363d'}`,
+            padding: '2px',
+            background: '#161b22',
+            transition: 'border-color 0.4s',
           }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={emergency ? '#f85149' : '#3fb950'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-        </div>
+        />
 
         <div>
           <div

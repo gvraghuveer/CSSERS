@@ -16,7 +16,6 @@ interface EmergencyOverlayProps {
   gpsStatus: 'online' | 'offline' | 'connecting';
   camera1IP: string;
   camera2IP: string;
-  emergencyContact: string;
   callStatus: 'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected' | 'rejected' | 'busy' | 'failed';
   callTimer: number;
   callResponder?: string | null;
@@ -29,7 +28,6 @@ export const EmergencyOverlay = ({
   gpsStatus,
   camera1IP,
   camera2IP,
-  emergencyContact,
   callStatus,
   callTimer,
   callResponder,
