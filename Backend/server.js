@@ -29,11 +29,12 @@ const PORT = process.env.PORT || 3001;
 // Real-time call tracking state
 let callState = {
   active: false,
-  status: 'idle', // 'idle', 'initiating', 'calling', 'ringing', 'connected', 'disconnected'
+  status: 'idle', // 'idle', 'initiating', 'calling', 'ringing', 'connected', 'disconnected', 'rejected', 'failed'
   timer: 0,
   pole: null,
   latitude: null,
-  longitude: null
+  longitude: null,
+  responder: null
 };
 
 // Twilio Config
@@ -42,8 +43,17 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 const toNumber = process.env.EMERGENCY_CONTACT;
 
+// Resolved Emergency Responders Hunt Group
+const contacts = [
+  { name: 'Ambulance', number: process.env.EMERGENCY_CONTACT_AMBULANCE || process.env.EMERGENCY_CONTACT },
+  { name: 'Police', number: process.env.EMERGENCY_CONTACT_POLICE || '' },
+  { name: 'Developer', number: process.env.EMERGENCY_CONTACT_DEV || '' }
+];
+
+let activeCalls = {}; // Tracks CallSid -> { name, number, status }
+
 let twilioClient = null;
-const isTwilioConfigured = accountSid && authToken && fromNumber && toNumber && 
+const isTwilioConfigured = accountSid && authToken && fromNumber && contacts.some(c => c.number) && 
                            !accountSid.includes('ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') &&
                            !authToken.includes('your_twilio_auth_token');
 
@@ -150,67 +160,111 @@ app.post('/api/start-call', async (req, res) => {
       const rawPublicUrl = process.env.PUBLIC_URL || '';
       const publicUrl = rawPublicUrl.replace(/\/$/, '');
 
-      // 1. Send SMS automatically in the background
+      // Resolve active responders list (de-duplicated)
+      const targetResponders = [];
+      const seenNumbers = new Set();
+      for (const c of contacts) {
+        const cleanNum = c.number ? c.number.trim() : '';
+        if (cleanNum && !seenNumbers.has(cleanNum)) {
+          seenNumbers.add(cleanNum);
+          targetResponders.push({ name: c.name, number: cleanNum });
+        }
+      }
+
+      if (targetResponders.length === 0 && toNumber) {
+        targetResponders.push({ name: 'Emergency Dispatch', number: toNumber.trim() });
+      }
+
+      activeCalls = {};
+      callState.responder = null;
+
+      // 1. Send SMS to all responders automatically in the background
       const googleMapsLink = `https://maps.google.com/?q=${finalLat},${finalLng}`;
       const messageBody = `CrimeShield ALERT: Emergency reported at ${finalPole}.\nLocation: ${googleMapsLink}`;
 
-      twilioClient.messages.create({
-        body: messageBody,
-        to: toNumber,
-        from: fromNumber
-      }).then(msg => {
-        console.log(`[CrimeShield] SMS sent automatically. SID: ${msg.sid}`);
-      }).catch(err => {
-        console.error('[CrimeShield] Automatic SMS sending failed:', err);
-      });
-
-      // 2. Build TwiML for simple voice announcement
-      const twiml = `
-        <Response>
-          <Say voice="alice" loop="2">
-            Emergency alert triggered at ${finalPole}. 
-            Location coordinates are: latitude ${finalLat.toFixed(6)}, longitude ${finalLng.toFixed(6)}. 
-            A text message with the Google Maps link has been sent to your phone.
-            Please check the Crime Shield dispatch dashboard immediately.
-          </Say>
-        </Response>
-      `;
-
-      const callParams = {
-        twiml,
-        to: toNumber,
-        from: fromNumber
-      };
-
-      if (publicUrl) {
-        callParams.statusCallback = `${publicUrl}/api/twilio/call-status`;
-        callParams.statusCallbackEvent = ['initiated', 'ringing', 'answered', 'completed'];
-        callParams.statusCallbackMethod = 'POST';
+      for (const responder of targetResponders) {
+        twilioClient.messages.create({
+          body: messageBody,
+          to: responder.number,
+          from: fromNumber
+        }).then(msg => {
+          console.log(`[CrimeShield] SMS sent to ${responder.name} (${responder.number}). SID: ${msg.sid}`);
+        }).catch(err => {
+          console.error(`[CrimeShield] SMS to ${responder.name} failed:`, err);
+        });
       }
 
-      const call = await twilioClient.calls.create(callParams);
+      // 2. Place calls to all unique responders in parallel
+      const callPromises = targetResponders.map(async (responder) => {
+        // Build customized TwiML
+        const twiml = `
+          <Response>
+            <Say voice="alice" loop="2">
+              Crime Shield Emergency Dispatch Alert. 
+              This is an urgent call for the ${responder.name} team. 
+              An emergency alert has been triggered at ${finalPole}. 
+              Location coordinates: latitude ${finalLat.toFixed(6)}, longitude ${finalLng.toFixed(6)}. 
+              A text message with the Google Maps link has been sent to your phone.
+              Please check the dispatch dashboard immediately.
+            </Say>
+          </Response>
+        `;
 
-      console.log(`[CrimeShield] Twilio call created. SID: ${call.sid}`);
+        const callParams = {
+          twiml,
+          to: responder.number,
+          from: fromNumber
+        };
+
+        if (publicUrl) {
+          callParams.statusCallback = `${publicUrl}/api/twilio/call-status`;
+          callParams.statusCallbackEvent = ['initiated', 'ringing', 'answered', 'completed'];
+          callParams.statusCallbackMethod = 'POST';
+        }
+
+        try {
+          const call = await twilioClient.calls.create(callParams);
+          console.log(`[CrimeShield] Call created for ${responder.name} (${responder.number}). SID: ${call.sid}`);
+          activeCalls[call.sid] = {
+            name: responder.name,
+            number: responder.number,
+            status: 'initiated'
+          };
+          return call.sid;
+        } catch (err) {
+          console.error(`[CrimeShield] Failed to call ${responder.name} (${responder.number}):`, err.message);
+          return null;
+        }
+      });
+
+      const sids = await Promise.all(callPromises);
+      const activeSids = sids.filter(sid => sid !== null);
+
+      if (activeSids.length === 0) {
+        throw new Error('All outbound Twilio calls failed to initiate.');
+      }
+
       callState.status = 'ringing';
       io.emit('call_state', callState);
 
-      // Transition to connected automatically only if no publicUrl is set as a fallback
+      // Fallback transition if no publicUrl is configured
       if (!publicUrl) {
         setTimeout(() => {
           if (callState.active && callState.status === 'ringing') {
             callState.status = 'connected';
+            callState.responder = targetResponders[0].name;
             io.emit('call_state', callState);
           }
         }, 3500);
       }
 
-      return res.json({ success: true, callSid: call.sid });
+      return res.json({ success: true, callSids: activeSids });
     } catch (error) {
-      console.error('[CrimeShield] Twilio Voice call failed:', error);
+      console.error('[CrimeShield] Twilio Voice calls failed:', error);
       callState.status = 'disconnected';
       callState.active = false;
       io.emit('call_state', callState);
-      return res.status(500).json({ error: 'Twilio call failed to place', details: error.message });
+      return res.status(500).json({ error: 'Twilio calls failed to place', details: error.message });
     }
   } else {
     // MOCK CALL SIMULATION (runs if environment variables are not filled in)
@@ -230,6 +284,7 @@ app.post('/api/start-call', async (req, res) => {
         setTimeout(() => {
           if (!callState.active) return;
           callState.status = 'connected';
+          callState.responder = 'Ambulance';
           io.emit('call_state', callState);
         }, 3000);
       }, 2000);
@@ -239,15 +294,29 @@ app.post('/api/start-call', async (req, res) => {
 
 // End call endpoint
 app.post('/api/end-call', (req, res) => {
-  console.log('[CrimeShield] Ending active emergency call');
+  console.log('[CrimeShield] Ending active emergency call(s)');
+
+  // Terminate any active Twilio calls
+  if (isTwilioConfigured && twilioClient) {
+    for (const sid in activeCalls) {
+      if (['initiated', 'ringing', 'queued', 'answered', 'in-progress'].includes(activeCalls[sid].status)) {
+        console.log(`[CrimeShield] Terminating call ${sid} to ${activeCalls[sid].name} via API.`);
+        twilioClient.calls(sid).update({ status: 'completed' })
+          .catch(err => console.error(`[CrimeShield] Error terminating call ${sid}:`, err.message));
+      }
+    }
+  }
+
   callState = {
     active: false,
     status: 'idle',
     timer: 0,
     pole: null,
     latitude: null,
-    longitude: null
+    longitude: null,
+    responder: null
   };
+  activeCalls = {};
   io.emit('call_state', callState);
   res.json({ success: true });
 });
@@ -310,7 +379,10 @@ app.post('/api/twilio/gather-input', async (req, res) => {
 // Twilio Call Status callback
 app.post('/api/twilio/call-status', (req, res) => {
   const callStatus = req.body.CallStatus;
-  console.log(`[CrimeShield] Twilio Call Status Update: ${callStatus}`);
+  const callSid = req.body.CallSid;
+  const toNum = req.body.To;
+
+  console.log(`[CrimeShield] Twilio Call Status Update: SID=${callSid}, To=${toNum}, Status=${callStatus}`);
 
   const resetCallState = () => {
     callState = {
@@ -319,8 +391,10 @@ app.post('/api/twilio/call-status', (req, res) => {
       timer: 0,
       pole: null,
       latitude: null,
-      longitude: null
+      longitude: null,
+      responder: null
     };
+    activeCalls = {};
     io.emit('call_state', callState);
   };
 
@@ -333,27 +407,72 @@ app.post('/api/twilio/call-status', (req, res) => {
     }, 8000);
   };
 
-  if (callStatus === 'busy' || callStatus === 'no-answer') {
-    console.log(`[CrimeShield] Call rejected/busy. Updating state to rejected.`);
-    callState.status = 'rejected';
-    callState.active = true;
-    io.emit('call_state', callState);
-    triggerSafetyTimeout();
-  } else if (callStatus === 'failed') {
-    console.log(`[CrimeShield] Call failed. Updating state to failed.`);
-    callState.status = 'failed';
-    callState.active = true;
-    io.emit('call_state', callState);
-    triggerSafetyTimeout();
-  } else if (callStatus === 'completed' || callStatus === 'canceled') {
-    console.log(`[CrimeShield] Call ended physically. Resetting state.`);
-    resetCallState();
-  } else if (callStatus === 'answered' || callStatus === 'in-progress') {
-    callState.status = 'connected';
-    io.emit('call_state', callState);
-  } else if (callStatus === 'ringing') {
-    callState.status = 'ringing';
-    io.emit('call_state', callState);
+  // If this call is tracked in activeCalls, update its status
+  if (activeCalls[callSid]) {
+    activeCalls[callSid].status = callStatus;
+    const responderName = activeCalls[callSid].name;
+
+    if (callStatus === 'answered' || callStatus === 'in-progress') {
+      console.log(`[CrimeShield] Call answered by: ${responderName}`);
+      callState.status = 'connected';
+      callState.responder = responderName;
+      io.emit('call_state', callState);
+
+      // Cancel all OTHER active calls that are still ringing
+      for (const otherSid in activeCalls) {
+        if (otherSid !== callSid && ['initiated', 'ringing', 'queued'].includes(activeCalls[otherSid].status)) {
+          console.log(`[CrimeShield] Responder ${responderName} answered. Canceling call to ${activeCalls[otherSid].name} (${activeCalls[otherSid].number}).`);
+          twilioClient.calls(otherSid).update({ status: 'completed' })
+            .catch(err => console.error(`[CrimeShield] Error canceling call ${otherSid}:`, err.message));
+          activeCalls[otherSid].status = 'canceled';
+        }
+      }
+    } else if (['busy', 'no-answer', 'failed', 'completed', 'canceled'].includes(callStatus)) {
+      // If the currently connected responder hung up, end the entire session
+      if (callState.status === 'connected' && callState.responder === responderName) {
+        console.log(`[CrimeShield] Connected responder ${responderName} disconnected. Resetting state.`);
+        resetCallState();
+        return res.sendStatus(200);
+      }
+
+      // Check if ALL calls are now finished/failed and none answered
+      const sids = Object.keys(activeCalls);
+      const allDone = sids.every(sid => 
+        ['busy', 'no-answer', 'failed', 'completed', 'canceled'].includes(activeCalls[sid].status)
+      );
+
+      if (allDone && callState.status !== 'connected') {
+        const hasRejections = sids.some(sid => ['busy', 'no-answer'].includes(activeCalls[sid].status));
+        callState.status = hasRejections ? 'rejected' : 'failed';
+        callState.active = true;
+        io.emit('call_state', callState);
+        triggerSafetyTimeout();
+      }
+    } else if (callStatus === 'ringing' && callState.status !== 'connected') {
+      callState.status = 'ringing';
+      io.emit('call_state', callState);
+    }
+  } else {
+    // Single call mode fallback
+    if (callStatus === 'busy' || callStatus === 'no-answer') {
+      callState.status = 'rejected';
+      callState.active = true;
+      io.emit('call_state', callState);
+      triggerSafetyTimeout();
+    } else if (callStatus === 'failed') {
+      callState.status = 'failed';
+      callState.active = true;
+      io.emit('call_state', callState);
+      triggerSafetyTimeout();
+    } else if (callStatus === 'completed' || callStatus === 'canceled') {
+      resetCallState();
+    } else if (callStatus === 'answered' || callStatus === 'in-progress') {
+      callState.status = 'connected';
+      io.emit('call_state', callState);
+    } else if (callStatus === 'ringing') {
+      callState.status = 'ringing';
+      io.emit('call_state', callState);
+    }
   }
 
   res.sendStatus(200);

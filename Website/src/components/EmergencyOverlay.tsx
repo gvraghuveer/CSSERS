@@ -19,6 +19,7 @@ interface EmergencyOverlayProps {
   emergencyContact: string;
   callStatus: 'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected' | 'rejected' | 'busy' | 'failed';
   callTimer: number;
+  callResponder?: string | null;
   onEndCall: () => void;
   poleName: string;
 }
@@ -31,6 +32,7 @@ export const EmergencyOverlay = ({
   emergencyContact,
   callStatus,
   callTimer,
+  callResponder,
   onEndCall,
   poleName
 }: EmergencyOverlayProps) => {
@@ -90,8 +92,8 @@ export const EmergencyOverlay = ({
       case 0: return 'Emergency Detected';
       case 1: return 'Collecting GPS Data...';
       case 2: return 'Preparing Call Stream...';
-      case 3: return callStatus === 'ringing' ? 'Ringing Contact...' : 'Calling Emergency Contact...';
-      case 4: return 'Call Connected';
+      case 3: return callStatus === 'ringing' ? 'Ringing Responders...' : 'Calling Responders...';
+      case 4: return callResponder ? `Connected: ${callResponder}` : 'Call Connected';
       default: return 'Emergency Calling Active';
     }
   };
@@ -159,7 +161,7 @@ export const EmergencyOverlay = ({
               Outgoing Voice Connection
             </div>
             <h2 className="text-lg font-bold text-[#e6edf3]">
-              {emergencyContact === '+1234567890' ? 'Primary Security Dispatch' : emergencyContact}
+              {callResponder ? `Active Responded Unit: ${callResponder}` : 'Ambulance · Police · Control Room'}
             </h2>
             
             {/* Status indicator badge */}

@@ -62,6 +62,7 @@ export default function App() {
   const [callInitiated, setCallInitiated] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'initiating' | 'calling' | 'ringing' | 'connected' | 'disconnected' | 'rejected' | 'busy' | 'failed'>('idle');
   const [callTimer, setCallTimer] = useState(0);
+  const [callResponder, setCallResponder] = useState<string | null>(null);
   const socketRef = useRef<any>(null);
   const handleEndCallRef = useRef<(() => void) | null>(null);
 
@@ -84,9 +85,10 @@ export default function App() {
     const socket = io(config.backendUrl);
     socketRef.current = socket;
 
-    socket.on('call_state', (state: { active: boolean; status: typeof callStatus; timer: number }) => {
+    socket.on('call_state', (state: { active: boolean; status: typeof callStatus; timer: number; responder?: string | null }) => {
       setCallStatus(state.status);
       setCallTimer(state.timer);
+      setCallResponder(state.responder || null);
       if (!state.active && state.status === 'idle') {
         handleEndCallRef.current?.();
       }
@@ -945,6 +947,7 @@ export default function App() {
           emergencyContact={config.emergencyContact}
           callStatus={callStatus}
           callTimer={callTimer}
+          callResponder={callResponder}
           onEndCall={handleEndCall}
           poleName={config.poleName}
         />
