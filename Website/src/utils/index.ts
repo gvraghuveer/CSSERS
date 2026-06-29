@@ -23,14 +23,14 @@ export const loadConfig = (): AppConfig => {
     return {
       ...DEFAULT_CFG,
       ...parsed,
-      camera1IP: import.meta.env.VITE_CAMERA1_IP || parsed.camera1IP || DEFAULT_CFG.camera1IP,
-      camera2IP: import.meta.env.VITE_CAMERA2_IP || parsed.camera2IP || DEFAULT_CFG.camera2IP,
-      esp32IP: import.meta.env.VITE_ESP32_IP || parsed.esp32IP || DEFAULT_CFG.esp32IP,
-      backendUrl: import.meta.env.VITE_BACKEND_URL || parsed.backendUrl || DEFAULT_CFG.backendUrl,
-      emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || parsed.emergencyContact || DEFAULT_CFG.emergencyContact,
-      poleName: import.meta.env.VITE_POLE_NAME || parsed.poleName || DEFAULT_CFG.poleName,
-      fallbackLatitude: Number(import.meta.env.VITE_FALLBACK_LATITUDE) || parsed.fallbackLatitude || DEFAULT_CFG.fallbackLatitude,
-      fallbackLongitude: Number(import.meta.env.VITE_FALLBACK_LONGITUDE) || parsed.fallbackLongitude || DEFAULT_CFG.fallbackLongitude,
+      camera1IP: parsed.camera1IP || import.meta.env.VITE_CAMERA1_IP || DEFAULT_CFG.camera1IP,
+      camera2IP: parsed.camera2IP || import.meta.env.VITE_CAMERA2_IP || DEFAULT_CFG.camera2IP,
+      esp32IP: parsed.esp32IP || import.meta.env.VITE_ESP32_IP || DEFAULT_CFG.esp32IP,
+      backendUrl: parsed.backendUrl || import.meta.env.VITE_BACKEND_URL || DEFAULT_CFG.backendUrl,
+      emergencyContact: parsed.emergencyContact || import.meta.env.VITE_EMERGENCY_CONTACT || DEFAULT_CFG.emergencyContact,
+      poleName: parsed.poleName || import.meta.env.VITE_POLE_NAME || DEFAULT_CFG.poleName,
+      fallbackLatitude: parsed.fallbackLatitude || Number(import.meta.env.VITE_FALLBACK_LATITUDE) || DEFAULT_CFG.fallbackLatitude,
+      fallbackLongitude: parsed.fallbackLongitude || Number(import.meta.env.VITE_FALLBACK_LONGITUDE) || DEFAULT_CFG.fallbackLongitude,
     };
   } catch {
     // Ignore parsing errors
