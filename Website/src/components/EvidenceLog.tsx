@@ -147,23 +147,26 @@ export const EvidenceLog = ({ items, onCapture, isCapturing, camerasActive }: Ev
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#484f58', marginRight: 8 }}>
             {items.length}
           </span>
-          {camerasActive && (
-            <button
-              onClick={onCapture}
-              disabled={isCapturing}
-              className="crimeshield-btn crimeshield-btn-primary"
-              style={{ padding: '6px 12px', fontSize: 11 }}
-            >
-              {isCapturing ? (
-                <span className="flex items-center gap-1.5">
-                  <span className="anim-spin" style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid #fff', borderTopColor: 'transparent', borderRadius: '50%' }} />
-                  Capturing...
-                </span>
-              ) : (
-                '📸 Capture Evidence'
-              )}
-            </button>
-          )}
+          <button
+            onClick={onCapture}
+            disabled={isCapturing || !camerasActive}
+            className={`crimeshield-btn ${camerasActive && !isCapturing ? 'crimeshield-btn-primary' : ''}`}
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: 11,
+              opacity: (isCapturing || !camerasActive) ? 0.4 : 1,
+              cursor: (isCapturing || !camerasActive) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isCapturing ? (
+              <span className="flex items-center gap-1.5">
+                <span className="anim-spin" style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid #fff', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                Capturing...
+              </span>
+            ) : (
+              '📸 Capture Evidence'
+            )}
+          </button>
         </div>
       </div>
       <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: 4 }}>

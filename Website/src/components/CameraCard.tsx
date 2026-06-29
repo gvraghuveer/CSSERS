@@ -197,50 +197,65 @@ export const CameraCard = ({
           className="flex items-center justify-between px-4 py-2.5"
           style={{ borderTop: '1px solid #21262d' }}
         >
-          {status === 'online' ? (
-            <div className="flex items-center gap-1.5">
-              <span className="anim-blink-live rounded-full" style={{ width: 6, height: 6, background: '#3fb950', display: 'inline-block' }} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#3fb950', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em' }}>LIVE STREAM</span>
-            </div>
-          ) : <div />}
+          <div className="flex items-center gap-1.5">
+            {status === 'online' ? (
+              <>
+                <span className="anim-blink-live rounded-full" style={{ width: 6, height: 6, background: '#3fb950', display: 'inline-block' }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#3fb950', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em' }}>LIVE STREAM</span>
+              </>
+            ) : (
+              <>
+                <span className="rounded-full" style={{ width: 6, height: 6, background: '#484f58', display: 'inline-block' }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#484f58', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em' }}>OFFLINE</span>
+              </>
+            )}
+          </div>
           <div className="flex gap-2">
-            {status === 'online' && (
-              <button
-                onClick={onToggleRecord}
-                aria-label={isRecording ? `Stop recording ${label}` : `Record ${label}`}
-                className="crimeshield-btn"
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11,
-                  color: isRecording ? '#f85149' : '#7d8590',
-                  border: `1px solid ${isRecording ? '#f8514980' : '#30363d'}`,
-                  background: isRecording ? 'rgba(248, 81, 73, 0.1)' : 'transparent',
-                }}
-              >
-                {isRecording ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 bg-[#f85149] rounded-sm anim-blink-live" style={{ display: 'inline-block' }} />
-                    Stop Rec
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <Video size={12} />
-                    Record
-                  </span>
-                )}
-              </button>
-            )}
-            {status === 'online' && (
-              <button
-                onClick={onSnapshot}
-                title="Future: Save to SD Card"
-                aria-label={`Snapshot ${label}`}
-                className="crimeshield-btn crimeshield-btn-ghost"
-                style={{ padding: '5px 10px', fontSize: 11 }}
-              >
-                <Camera size={12} style={{ marginRight: 4 }} /> Snapshot
-              </button>
-            )}
+            <button
+              onClick={onToggleRecord}
+              disabled={status !== 'online'}
+              aria-label={isRecording ? `Stop recording ${label}` : `Record ${label}`}
+              className="crimeshield-btn"
+              style={{
+                padding: '5px 10px',
+                fontSize: 11,
+                color: status !== 'online' ? '#484f58' : isRecording ? '#f85149' : '#7d8590',
+                border: `1px solid ${status !== 'online' ? '#21262d' : isRecording ? '#f8514980' : '#30363d'}`,
+                background: status === 'online' && isRecording ? 'rgba(248, 81, 73, 0.1)' : 'transparent',
+                cursor: status === 'online' ? 'pointer' : 'not-allowed',
+                opacity: status === 'online' ? 1 : 0.4,
+              }}
+            >
+              {isRecording ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-[#f85149] rounded-sm anim-blink-live" style={{ display: 'inline-block' }} />
+                  Stop Rec
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <Video size={12} />
+                  Record
+                </span>
+              )}
+            </button>
+            <button
+              onClick={onSnapshot}
+              disabled={status !== 'online'}
+              title={status === 'online' ? "Future: Save to SD Card" : "Camera offline"}
+              aria-label={`Snapshot ${label}`}
+              className="crimeshield-btn"
+              style={{
+                padding: '5px 10px',
+                fontSize: 11,
+                color: status === 'online' ? '#8b949e' : '#484f58',
+                border: `1px solid ${status === 'online' ? '#30363d' : '#21262d'}`,
+                background: 'transparent',
+                cursor: status === 'online' ? 'pointer' : 'not-allowed',
+                opacity: status === 'online' ? 1 : 0.4,
+              }}
+            >
+              <Camera size={12} style={{ marginRight: 4 }} /> Snapshot
+            </button>
           </div>
         </div>
       </div>
