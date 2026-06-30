@@ -10,7 +10,7 @@ const char* ssid = "A9488";
 const char* password = "ilel95898";
 
 // Backend URL
-const char* backendServer = "http://172.20.76.152:3001";
+const char* backendServer = "https://crimeshield-backend-4w0n.onrender.com";
 unsigned long lastHeartbeat = 0;
 const unsigned long heartbeatInterval = 20000;  // Heartbeat every 20 seconds
 
