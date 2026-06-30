@@ -69,9 +69,6 @@ void setup() {
 
   Serial.println();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
-
   camera_config_t config;
 
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -171,6 +168,9 @@ void setup() {
     WiFi.localIP());
 
   registerDevice();
+
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
 }
 
 // ========================================
@@ -179,13 +179,7 @@ void setup() {
 
 void loop() {
   if (emergencyMode) {
-    if (millis() - lastFlash > 200) {
-      lastFlash = millis();
-
-      flashState = !flashState;
-
-      digitalWrite(4, flashState);
-    }
+    digitalWrite(4, HIGH);
   } else {
     digitalWrite(4, LOW);
   }

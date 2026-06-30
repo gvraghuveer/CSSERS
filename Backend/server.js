@@ -116,8 +116,9 @@ app.post('/api/start-call', async (req, res) => {
 
   console.log(`[CrimeShield] Initiating call for ${finalPole}. Fallback Coordinates (Lat: ${finalLat}, Lng: ${finalLng})`);
 
-  // Query Supabase for the latest valid GPS coordinates if configured
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+  // Query Supabase for the latest valid GPS coordinates if configured and not supplied in the request
+  const hasValidCoords = (finalLat !== 0 && finalLng !== 0);
+  if (!hasValidCoords && process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
     try {
       const supabaseQueryUrl = `${process.env.SUPABASE_URL}/rest/v1/events?select=latitude,longitude&order=created_at.desc&limit=5`;
       console.log(`[CrimeShield] Querying Supabase events: ${supabaseQueryUrl}`);

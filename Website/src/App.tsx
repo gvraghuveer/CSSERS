@@ -861,19 +861,8 @@ export default function App() {
       if (!callInitiated) {
         setCallInitiated(true);
         const triggerCall = async () => {
-          let lat = (gps && gps.latitude !== 0) ? gps.latitude : config.fallbackLatitude;
-          let lng = (gps && gps.longitude !== 0) ? gps.longitude : config.fallbackLongitude;
-          
-          try {
-            const gpsRes = await safeFetch(`http://${config.esp32IP}/gps`, 1500);
-            if (gpsRes.ok) {
-              const gpsData = await gpsRes.json();
-              lat = gpsData.latitude;
-              lng = gpsData.longitude;
-            }
-          } catch (e) {
-            console.warn('GPS fetch failed for emergency call, using fallback:', e);
-          }
+          const lat = (gps && gps.latitude !== 0) ? gps.latitude : config.fallbackLatitude;
+          const lng = (gps && gps.longitude !== 0) ? gps.longitude : config.fallbackLongitude;
 
           try {
             await fetch(`${config.backendUrl}/api/start-call`, {

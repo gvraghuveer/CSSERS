@@ -14,8 +14,11 @@ const char* backendServer = "https://crimeshield-backend-4w0n.onrender.com";
 unsigned long lastHeartbeat = 0;
 const unsigned long heartbeatInterval = 20000;  // Heartbeat every 20 seconds
 
-const char* CAMERA_1_IP = "10.200.21.66";
-const char* CAMERA_2_IP = "10.200.21.145";
+// Cached Camera IPs (initialized with fallbacks)
+String camera1CachedIP = "10.200.21.66";
+String camera2CachedIP = "10.200.21.145";
+unsigned long lastIpSync = 0;
+const unsigned long ipSyncInterval = 60000; // Sync every 60 seconds
 
 bool lastButtonState = HIGH;
 bool emergencyState = false;
@@ -34,65 +37,133 @@ int satelliteCount = 0;
 bool gpsValid = false;
 
 // ========================================
-// CAMERA REQUEST FUNCTION
+// BACKGROUND TASK STRUCTURES
 // ========================================
 
-void sendCameraRequest(
-  const char* ip,
-  const char* route) {
+struct CamTaskParams {
+  String ip;
+  String route;
+};
+
+struct BackendTaskParams {
+  String url;
+  double lat;
+  double lng;
+  bool isActivation;
+};
+
+// ========================================
+// BACKGROUND TASK FUNCTIONS
+// ========================================
+
+void triggerCamTask(void *pvParameters) {
+  CamTaskParams* params = (CamTaskParams*)pvParameters;
+  if (params->ip && params->ip != "") {
+    HTTPClient http;
+    String url = "http://" + params->ip + params->route;
+    Serial.print("[Task] Triggering camera: ");
+    Serial.println(url);
+    
+    http.begin(url);
+    http.setTimeout(2000); // 2 seconds timeout to prevent hanging
+    int responseCode = http.GET();
+    Serial.print("[Task] Camera response code: ");
+    Serial.println(responseCode);
+    http.end();
+  }
+  delete params; // Free memory allocated on heap
+  vTaskDelete(NULL); // Delete the task
+}
+
+void backendAlertTask(void *pvParameters) {
+  BackendTaskParams* params = (BackendTaskParams*)pvParameters;
   HTTPClient http;
-
-  String url =
-    String("http://") + ip + route;
-
-  Serial.print("Sending Request: ");
-  Serial.println(url);
-
-  http.begin(url);
-
-  int responseCode =
-    http.GET();
-
-  Serial.print("Response Code: ");
-  Serial.println(responseCode);
-
+  
+  if (params->isActivation) {
+    String url = params->url + "/api/start-call";
+    Serial.print("[Task] Triggering Backend Alert: ");
+    Serial.println(url);
+    
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    
+    String payload = "{\"pole\":\"controller-01\",\"latitude\":" + String(params->lat, 6) + ",\"longitude\":" + String(params->lng, 6) + "}";
+    int responseCode = http.POST(payload);
+    Serial.print("[Task] Backend start-call response: ");
+    Serial.println(responseCode);
+  } else {
+    String url = params->url + "/api/end-call";
+    Serial.print("[Task] Clearing Backend Alert: ");
+    Serial.println(url);
+    
+    http.begin(url);
+    int responseCode = http.POST("");
+    Serial.print("[Task] Backend end-call response: ");
+    Serial.println(responseCode);
+  }
+  
   http.end();
+  delete params; // Free memory allocated on heap
+  vTaskDelete(NULL); // Delete the task
 }
 
 // ========================================
 // REGISTRY IP DISCOVERY
 // ========================================
 
-String getIpFromRegistry(String deviceId) {
+void syncCameraIPs() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     String url = String(backendServer) + "/api/devices";
     http.begin(url);
+    http.setTimeout(3000);
     
     int httpResponseCode = http.GET();
     if (httpResponseCode == 200) {
       String response = http.getString();
       http.end();
       
-      int deviceIndex = response.indexOf("\"deviceId\":\"" + deviceId + "\"");
-      if (deviceIndex != -1) {
-        int ipKeyIndex = response.indexOf("\"ip\":\"", deviceIndex);
+      // Resolve Camera 1 IP
+      int deviceIndex1 = response.indexOf("\"deviceId\":\"camera-01\"");
+      if (deviceIndex1 != -1) {
+        int ipKeyIndex = response.indexOf("\"ip\":\"", deviceIndex1);
         if (ipKeyIndex != -1) {
           int ipStartIndex = ipKeyIndex + 6;
           int ipEndIndex = response.indexOf("\"", ipStartIndex);
           if (ipEndIndex != -1) {
-            String ip = response.substring(ipStartIndex, ipEndIndex);
-            Serial.print("[Registry] Resolved IP for " + deviceId + ": ");
-            Serial.println(ip);
-            return ip;
+            camera1CachedIP = response.substring(ipStartIndex, ipEndIndex);
+            Serial.print("[Sync] Camera 1 IP cached: ");
+            Serial.println(camera1CachedIP);
+          }
+        }
+      }
+      
+      // Resolve Camera 2 IP
+      int deviceIndex2 = response.indexOf("\"deviceId\":\"camera-02\"");
+      if (deviceIndex2 != -1) {
+        int ipKeyIndex = response.indexOf("\"ip\":\"", deviceIndex2);
+        if (ipKeyIndex != -1) {
+          int ipStartIndex = ipKeyIndex + 6;
+          int ipEndIndex = response.indexOf("\"", ipStartIndex);
+          if (ipEndIndex != -1) {
+            camera2CachedIP = response.substring(ipStartIndex, ipEndIndex);
+            Serial.print("[Sync] Camera 2 IP cached: ");
+            Serial.println(camera2CachedIP);
           }
         }
       }
     } else {
       http.end();
+      Serial.print("[Sync] Failed to fetch device registry: ");
+      Serial.println(httpResponseCode);
     }
   }
-  return "";
+}
+
+// Helper task wrapper for background IP sync
+void syncIPsTask(void *pvParameters) {
+  syncCameraIPs();
+  vTaskDelete(NULL);
 }
 
 // ========================================
@@ -109,21 +180,25 @@ void emergencyOn() {
   toneState = false;
   lastToneChange = millis();
 
-  // Dynamically resolve camera IPs from backend registry
-  String cam1IP = getIpFromRegistry("camera-01");
-  String cam2IP = getIpFromRegistry("camera-02");
+  // 1. Trigger Camera 1 (Task A)
+  CamTaskParams* cam1Params = new CamTaskParams();
+  cam1Params->ip = camera1CachedIP;
+  cam1Params->route = "/emergency/on";
+  xTaskCreate(triggerCamTask, "Cam1TaskOn", 4096, cam1Params, 1, NULL);
 
-  if (cam2IP != "") {
-    sendCameraRequest(cam2IP.c_str(), "/emergency/on");
-  } else {
-    sendCameraRequest(CAMERA_2_IP, "/emergency/on"); // Fallback
-  }
+  // 2. Trigger Camera 2 (Task B)
+  CamTaskParams* cam2Params = new CamTaskParams();
+  cam2Params->ip = camera2CachedIP;
+  cam2Params->route = "/emergency/on";
+  xTaskCreate(triggerCamTask, "Cam2TaskOn", 4096, cam2Params, 1, NULL);
 
-  if (cam1IP != "") {
-    sendCameraRequest(cam1IP.c_str(), "/emergency/on");
-  } else {
-    sendCameraRequest(CAMERA_1_IP, "/emergency/on"); // Fallback
-  }
+  // 3. Trigger Backend Alert (Task C)
+  BackendTaskParams* backendParams = new BackendTaskParams();
+  backendParams->url = String(backendServer);
+  backendParams->lat = latitude;
+  backendParams->lng = longitude;
+  backendParams->isActivation = true;
+  xTaskCreate(backendAlertTask, "BackendAlertTask", 4096, backendParams, 1, NULL);
 }
 
 // ========================================
@@ -139,21 +214,25 @@ void emergencyOff() {
 
   ledcWriteTone(BUZZER_PIN, 0);
 
-  // Dynamically resolve camera IPs from backend registry
-  String cam1IP = getIpFromRegistry("camera-01");
-  String cam2IP = getIpFromRegistry("camera-02");
+  // 1. Clear Camera 1 (Task A)
+  CamTaskParams* cam1Params = new CamTaskParams();
+  cam1Params->ip = camera1CachedIP;
+  cam1Params->route = "/emergency/off";
+  xTaskCreate(triggerCamTask, "Cam1TaskOff", 4096, cam1Params, 1, NULL);
 
-  if (cam2IP != "") {
-    sendCameraRequest(cam2IP.c_str(), "/emergency/off");
-  } else {
-    sendCameraRequest(CAMERA_2_IP, "/emergency/off"); // Fallback
-  }
+  // 2. Clear Camera 2 (Task B)
+  CamTaskParams* cam2Params = new CamTaskParams();
+  cam2Params->ip = camera2CachedIP;
+  cam2Params->route = "/emergency/off";
+  xTaskCreate(triggerCamTask, "Cam2TaskOff", 4096, cam2Params, 1, NULL);
 
-  if (cam1IP != "") {
-    sendCameraRequest(cam1IP.c_str(), "/emergency/off");
-  } else {
-    sendCameraRequest(CAMERA_1_IP, "/emergency/off"); // Fallback
-  }
+  // 3. Clear Backend Alert (Task C)
+  BackendTaskParams* backendParams = new BackendTaskParams();
+  backendParams->url = String(backendServer);
+  backendParams->lat = latitude;
+  backendParams->lng = longitude;
+  backendParams->isActivation = false;
+  xTaskCreate(backendAlertTask, "BackendClearTask", 4096, backendParams, 1, NULL);
 }
 
 // ========================================
@@ -302,6 +381,7 @@ void setup() {
     WiFi.localIP());
 
   registerDevice();
+  syncCameraIPs();
 
   GPSSerial.begin(
     9600,
@@ -407,6 +487,12 @@ void loop() {
   if (millis() - lastHeartbeat > heartbeatInterval) {
     lastHeartbeat = millis();
     sendHeartbeat();
+  }
+
+  // Background camera IP sync from backend registry (every 60 seconds)
+  if (millis() - lastIpSync > ipSyncInterval) {
+    lastIpSync = millis();
+    xTaskCreate(syncIPsTask, "SyncIPsTask", 4096, NULL, 1, NULL);
   }
 
   server.handleClient();
