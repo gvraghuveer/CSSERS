@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { StatusBadge } from './StatusBadge';
 import { Camera, Video, VideoOff, Maximize2 } from 'lucide-react';
 
@@ -29,23 +29,55 @@ export const CameraCard = ({
   isPaused,
 }: CameraCardProps) => {
   const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [shouldStream, setShouldStream] = useState(!isPaused);
   const [retryKey, setRetryKey] = useState(0);
 
+  const prevStatusRef = useRef(status);
+
+  // Transition observer: when camera reconnects (offline -> online), force stream reload
+  useEffect(() => {
+    if (prevStatusRef.current === 'offline' && status === 'online') {
+      console.log(`[CameraCard] Status transitioned from offline to online for ${label}. Reloading stream.`);
+      setImgFailed(false);
+      setImgLoaded(false);
+      setRetryKey(prev => prev + 1);
+    }
+    prevStatusRef.current = status;
+  }, [status, label]);
+
+  // Reset loading states when parameters change
   useEffect(() => {
     setImgFailed(false);
-  }, [ip, status, retryKey]);
+    setImgLoaded(false);
+  }, [ip, status, retryKey, shouldStream]);
 
+  // Watchdog timer: if stream is supposed to be active but has not loaded in 5s, mark as failed
+  useEffect(() => {
+    if (shouldStream && status === 'online' && !imgLoaded && !imgFailed) {
+      const t = setTimeout(() => {
+        if (!imgLoaded) {
+          console.warn(`[CameraCard] Stream loading timed out for ${label}. Displaying No Signal.`);
+          setImgFailed(true);
+        }
+      }, 5000); // 5 seconds load timeout
+      return () => clearTimeout(t);
+    }
+  }, [shouldStream, status, imgLoaded, imgFailed, label]);
+
+  // Handle auto-retry loops
   useEffect(() => {
     if (imgFailed && status === 'online') {
       const t = setTimeout(() => {
         setImgFailed(false);
+        setImgLoaded(false);
         setRetryKey(prev => prev + 1);
       }, 5000); // Auto-retry after 5 seconds
       return () => clearTimeout(t);
     }
   }, [imgFailed, status]);
 
+  // Handle pauses/resumes (e.g. during fullscreen)
   useEffect(() => {
     if (isPaused) {
       setShouldStream(false);
@@ -143,6 +175,10 @@ export const CameraCard = ({
                 alt={`${label} live feed`}
                 crossOrigin="anonymous"
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: shouldStream ? 'block' : 'none' }}
+                onLoad={() => {
+                  console.log(`[CameraCard] Stream successfully loaded for ${label}`);
+                  setImgLoaded(true);
+                }}
                 onError={() => setImgFailed(true)}
               />
               {!shouldStream ? (
