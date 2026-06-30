@@ -8,7 +8,7 @@ bool flashState = false;
 unsigned long lastFlash = 0;
 
 // Registry Config
-const char* backendServer = "http://172.20.76.152:3001";
+const char* backendServer = "https://crimeshield-backend-4w0n.onrender.com";
 unsigned long lastHeartbeat = 0;
 const unsigned long heartbeatInterval = 20000; // Heartbeat every 20 seconds
 
