@@ -26,6 +26,21 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3001;
 
+// In-Memory Device Registry
+const devices = new Map();
+
+// Helper to determine cleaner sender IP
+const getClientIp = (req) => {
+  let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  if (ip.includes(',')) {
+    ip = ip.split(',')[0].trim();
+  }
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.substring(7);
+  }
+  return ip;
+};
+
 // Real-time call tracking state
 let callState = {
   active: false,
@@ -485,6 +500,99 @@ setInterval(() => {
     io.emit('call_timer', callState.timer);
   }
 }, 1000);
+
+// ============================================================================
+// DEVICE REGISTRY ROUTES
+// ============================================================================
+
+// 1. POST /api/device/register
+app.post('/api/device/register', (req, res) => {
+  const { deviceId, deviceType, mac } = req.body;
+  if (!deviceId || !deviceType || !mac) {
+    return res.status(400).json({ error: 'Missing required parameters: deviceId, deviceType, mac' });
+  }
+
+  const ip = req.body.ip || getClientIp(req);
+  const now = Date.now();
+
+  const deviceData = {
+    deviceId,
+    deviceType,
+    mac,
+    ip,
+    status: 'ONLINE',
+    lastSeen: now
+  };
+
+  devices.set(deviceId, deviceData);
+
+  console.log(`\n[DEVICE REGISTERED]\n\nDevice: ${deviceId}\nType: ${deviceType}\nIP: ${ip}\nMAC: ${mac}\n`);
+
+  res.json({ success: true });
+});
+
+// 2. POST /api/device/heartbeat
+app.post('/api/device/heartbeat', (req, res) => {
+  const { deviceId } = req.body;
+  if (!deviceId) {
+    return res.status(400).json({ error: 'Missing required parameter: deviceId' });
+  }
+
+  const ip = req.body.ip || getClientIp(req);
+  const now = Date.now();
+
+  let existing = devices.get(deviceId);
+  if (!existing) {
+    // Self-healing fallback: If server restarted and lost volatile memory, register it dynamically
+    const inferredType = deviceId.toLowerCase().includes('camera') ? 'camera' : 'controller';
+    existing = {
+      deviceId,
+      deviceType: inferredType,
+      mac: 'UNKNOWN',
+      ip,
+      status: 'ONLINE',
+      lastSeen: now
+    };
+    devices.set(deviceId, existing);
+    console.log(`\n[DEVICE REGISTERED (via Heartbeat)]\n\nDevice: ${deviceId}\nType: ${inferredType}\nIP: ${ip}\nMAC: UNKNOWN\n`);
+  } else {
+    existing.ip = ip;
+    existing.status = 'ONLINE';
+    existing.lastSeen = now;
+    devices.set(deviceId, existing);
+    console.log(`\n[HEARTBEAT]\n\nDevice: ${deviceId}\nIP: ${ip}\n`);
+  }
+
+  res.json({ success: true });
+});
+
+// 3. GET /api/device/:deviceId
+app.get('/api/device/:deviceId', (req, res) => {
+  const { deviceId } = req.params;
+  const device = devices.get(deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  res.json(device);
+});
+
+// 4. GET /api/devices
+app.get('/api/devices', (req, res) => {
+  const allDevices = Array.from(devices.values());
+  res.json(allDevices);
+});
+
+// 5. Offline Detection (runs every 15 seconds)
+setInterval(() => {
+  const now = Date.now();
+  for (const [deviceId, device] of devices.entries()) {
+    if (device.status === 'ONLINE' && now - device.lastSeen > 45000) {
+      device.status = 'OFFLINE';
+      devices.set(deviceId, device);
+      console.log(`\n[DEVICE OFFLINE]\n\nDevice: ${deviceId}\n`);
+    }
+  }
+}, 15000);
 
 server.listen(PORT, () => {
   console.log(`[CrimeShield] Emergency server running on port ${PORT}`);

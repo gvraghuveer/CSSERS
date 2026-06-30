@@ -9,6 +9,11 @@
 const char* ssid = "A9488";
 const char* password = "ilel95898";
 
+// Backend URL
+const char* backendServer = "http://172.20.76.152:3001";
+unsigned long lastHeartbeat = 0;
+const unsigned long heartbeatInterval = 20000;  // Heartbeat every 20 seconds
+
 const char* CAMERA_1_IP = "10.200.21.66";
 const char* CAMERA_2_IP = "10.200.21.145";
 
@@ -55,6 +60,42 @@ void sendCameraRequest(
 }
 
 // ========================================
+// REGISTRY IP DISCOVERY
+// ========================================
+
+String getIpFromRegistry(String deviceId) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = String(backendServer) + "/api/devices";
+    http.begin(url);
+    
+    int httpResponseCode = http.GET();
+    if (httpResponseCode == 200) {
+      String response = http.getString();
+      http.end();
+      
+      int deviceIndex = response.indexOf("\"deviceId\":\"" + deviceId + "\"");
+      if (deviceIndex != -1) {
+        int ipKeyIndex = response.indexOf("\"ip\":\"", deviceIndex);
+        if (ipKeyIndex != -1) {
+          int ipStartIndex = ipKeyIndex + 6;
+          int ipEndIndex = response.indexOf("\"", ipStartIndex);
+          if (ipEndIndex != -1) {
+            String ip = response.substring(ipStartIndex, ipEndIndex);
+            Serial.print("[Registry] Resolved IP for " + deviceId + ": ");
+            Serial.println(ip);
+            return ip;
+          }
+        }
+      }
+    } else {
+      http.end();
+    }
+  }
+  return "";
+}
+
+// ========================================
 // EMERGENCY ON
 // ========================================
 
@@ -68,13 +109,21 @@ void emergencyOn() {
   toneState = false;
   lastToneChange = millis();
 
-  sendCameraRequest(
-    CAMERA_2_IP,
-    "/emergency/on");
+  // Dynamically resolve camera IPs from backend registry
+  String cam1IP = getIpFromRegistry("camera-01");
+  String cam2IP = getIpFromRegistry("camera-02");
 
-  sendCameraRequest(
-    CAMERA_1_IP,
-    "/emergency/on");
+  if (cam2IP != "") {
+    sendCameraRequest(cam2IP.c_str(), "/emergency/on");
+  } else {
+    sendCameraRequest(CAMERA_2_IP, "/emergency/on"); // Fallback
+  }
+
+  if (cam1IP != "") {
+    sendCameraRequest(cam1IP.c_str(), "/emergency/on");
+  } else {
+    sendCameraRequest(CAMERA_1_IP, "/emergency/on"); // Fallback
+  }
 }
 
 // ========================================
@@ -90,13 +139,21 @@ void emergencyOff() {
 
   ledcWriteTone(BUZZER_PIN, 0);
 
-  sendCameraRequest(
-    CAMERA_2_IP,
-    "/emergency/off");
+  // Dynamically resolve camera IPs from backend registry
+  String cam1IP = getIpFromRegistry("camera-01");
+  String cam2IP = getIpFromRegistry("camera-02");
 
-  sendCameraRequest(
-    CAMERA_1_IP,
-    "/emergency/off");
+  if (cam2IP != "") {
+    sendCameraRequest(cam2IP.c_str(), "/emergency/off");
+  } else {
+    sendCameraRequest(CAMERA_2_IP, "/emergency/off"); // Fallback
+  }
+
+  if (cam1IP != "") {
+    sendCameraRequest(cam1IP.c_str(), "/emergency/off");
+  } else {
+    sendCameraRequest(CAMERA_1_IP, "/emergency/off"); // Fallback
+  }
 }
 
 // ========================================
@@ -168,6 +225,40 @@ void handleEmergencyOff() {
 }
 
 // ========================================
+// DEVICE REGISTRY HELPERS
+// ========================================
+void registerDevice() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(String(backendServer) + "/api/device/register");
+    http.addHeader("Content-Type", "application/json");
+
+    String payload = "{\"deviceId\":\"controller-01\",\"deviceType\":\"controller\",\"mac\":\"" + WiFi.macAddress() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+
+    int httpResponseCode = http.POST(payload);
+    Serial.print("[Registry] Register code: ");
+    Serial.println(httpResponseCode);
+    http.end();
+  }
+}
+
+void sendHeartbeat() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(String(backendServer) + "/api/device/heartbeat");
+    http.addHeader("Content-Type", "application/json");
+
+    String payload = "{\"deviceId\":\"controller-01\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+
+    int httpResponseCode = http.POST(payload);
+    Serial.print("[Registry] Heartbeat code: ");
+    Serial.println(httpResponseCode);
+    http.end();
+  }
+}
+
+
+// ========================================
 // SETUP
 // ========================================
 
@@ -209,6 +300,8 @@ void setup() {
   Serial.print("ESP32 IP: ");
   Serial.println(
     WiFi.localIP());
+
+  registerDevice();
 
   GPSSerial.begin(
     9600,
@@ -309,5 +402,12 @@ void loop() {
       }
     }
   }
+
+  // Heartbeat trigger
+  if (millis() - lastHeartbeat > heartbeatInterval) {
+    lastHeartbeat = millis();
+    sendHeartbeat();
+  }
+
   server.handleClient();
 }

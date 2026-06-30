@@ -1,10 +1,17 @@
 #include <Arduino.h>
 #include "esp_camera.h"
 #include <WiFi.h>
+#include <HTTPClient.h>
 
 bool emergencyMode = false;
 bool flashState = false;
 unsigned long lastFlash = 0;
+
+// Registry Config
+const char* backendServer = "http://172.20.76.152:3001";
+unsigned long lastHeartbeat = 0;
+const unsigned long heartbeatInterval = 20000; // Heartbeat every 20 seconds
+
 // ========================================
 // WIFI SETTINGS
 // ========================================
@@ -17,6 +24,40 @@ const char *password = "ilel95898";
 // ========================================
 
 void startCameraServer();
+
+// ========================================
+// DEVICE REGISTRY HELPERS
+// ========================================
+void registerDevice() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(String(backendServer) + "/api/device/register");
+    http.addHeader("Content-Type", "application/json");
+    
+    // Sends JSON with camera-01 deviceId and local IP
+    String payload = "{\"deviceId\":\"camera-02\",\"deviceType\":\"camera\",\"mac\":\"" + WiFi.macAddress() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+    
+    int httpResponseCode = http.POST(payload);
+    Serial.print("[Registry] Register code: ");
+    Serial.println(httpResponseCode);
+    http.end();
+  }
+}
+
+void sendHeartbeat() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(String(backendServer) + "/api/device/heartbeat");
+    http.addHeader("Content-Type", "application/json");
+    
+    String payload = "{\"deviceId\":\"camera-02\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+    
+    int httpResponseCode = http.POST(payload);
+    Serial.print("[Registry] Heartbeat code: ");
+    Serial.println(httpResponseCode);
+    http.end();
+  }
+}
 
 // ========================================
 // SETUP
@@ -128,6 +169,8 @@ void setup() {
 
   Serial.println(
     WiFi.localIP());
+
+  registerDevice();
 }
 
 // ========================================
@@ -145,6 +188,11 @@ void loop() {
     }
   } else {
     digitalWrite(4, LOW);
+  }
+
+  if (millis() - lastHeartbeat > heartbeatInterval) {
+    lastHeartbeat = millis();
+    sendHeartbeat();
   }
 
   delay(10);

@@ -153,10 +153,50 @@ export default function App() {
     const poll = async () => {
       if (dead) return;
 
+      let currentCam1IP = config.camera1IP;
+      let currentCam2IP = config.camera2IP;
+      let currentEsp32IP = config.esp32IP;
+
+      // 0. Sync device IPs from backend registry
+      try {
+        const devRes = await safeFetch(`${config.backendUrl}/api/devices`, 2000);
+        if (devRes.ok) {
+          const devList = await devRes.json() as Array<{ deviceId: string, deviceType: string, ip: string, status: string }>;
+          let updated = false;
+          const newConfig = { ...config };
+
+          for (const dev of devList) {
+            if (dev.status === 'ONLINE' && dev.ip) {
+              if (dev.deviceId === 'camera-01' && config.camera1IP !== dev.ip) {
+                newConfig.camera1IP = dev.ip;
+                currentCam1IP = dev.ip;
+                updated = true;
+              } else if (dev.deviceId === 'camera-02' && config.camera2IP !== dev.ip) {
+                newConfig.camera2IP = dev.ip;
+                currentCam2IP = dev.ip;
+                updated = true;
+              } else if (dev.deviceId === 'controller-01' && config.esp32IP !== dev.ip) {
+                newConfig.esp32IP = dev.ip;
+                currentEsp32IP = dev.ip;
+                updated = true;
+              }
+            }
+          }
+
+          if (updated) {
+            setConfig(newConfig);
+            localStorage.setItem('crimeshield_config', JSON.stringify(newConfig));
+            addEvent('system_start', 'Synced device IPs from backend registry');
+          }
+        }
+      } catch (err) {
+        // Ignore registry sync error and use existing IPs
+      }
+
       // Define helper status checkers for parallel execution
       const checkEmergencyCam1 = async () => {
         try {
-          const res = await safeFetch(`http://${config.camera1IP}/emergency/status`);
+          const res = await safeFetch(`http://${currentCam1IP}/emergency/status`);
           const data = await res.json() as { emergency: boolean };
           return { success: true, emergency: data.emergency };
         } catch {
@@ -166,7 +206,7 @@ export default function App() {
 
       const checkEmergencyCam2 = async () => {
         try {
-          const res = await safeFetch(`http://${config.camera2IP}/emergency/status`);
+          const res = await safeFetch(`http://${currentCam2IP}/emergency/status`);
           const data = await res.json() as { emergency: boolean };
           return { success: true, emergency: data.emergency };
         } catch {
@@ -176,12 +216,12 @@ export default function App() {
 
       const checkEmergencyController = async () => {
         try {
-          const res = await safeFetch(`http://${config.esp32IP}/emergency/status`);
+          const res = await safeFetch(`http://${currentEsp32IP}/emergency/status`);
           const data = await res.json() as { emergency: boolean };
           return { success: true, emergency: data.emergency, online: true };
         } catch {
           try {
-            await safeFetch(`http://${config.esp32IP}/`, 1500, { mode: 'no-cors' });
+            await safeFetch(`http://${currentEsp32IP}/`, 1500, { mode: 'no-cors' });
             return { success: false, emergency: false, online: true };
           } catch {
             return { success: false, emergency: false, online: false };
@@ -191,7 +231,7 @@ export default function App() {
 
       const checkGps = async () => {
         try {
-          const res = await safeFetch(`http://${config.esp32IP}/gps`);
+          const res = await safeFetch(`http://${currentEsp32IP}/gps`);
           if (!res.ok) throw new Error();
           const data = await res.json() as GpsData;
           return { success: true, data };
@@ -202,7 +242,7 @@ export default function App() {
 
       const checkCam1Online = async () => {
         try {
-          await safeFetch(`http://${config.camera1IP}/`, 3000, { mode: 'no-cors' });
+          await safeFetch(`http://${currentCam1IP}/`, 3000, { mode: 'no-cors' });
           return true;
         } catch {
           return false;
@@ -211,7 +251,7 @@ export default function App() {
 
       const checkCam2Online = async () => {
         try {
-          await safeFetch(`http://${config.camera2IP}/`, 3000, { mode: 'no-cors' });
+          await safeFetch(`http://${currentCam2IP}/`, 3000, { mode: 'no-cors' });
           return true;
         } catch {
           return false;
@@ -304,7 +344,7 @@ export default function App() {
         const s = 'online';
         setCam1Status(s);
         if (s !== prevCam1.current) {
-          addEvent('camera_online', `CAM-01 · ${config.camera1IP}`);
+          addEvent('camera_online', `CAM-01 · ${currentCam1IP}`);
           addToast({ borderColor: '#3fb950', bg: 'rgba(63,185,80,0.06)', title: 'Camera Connected', message: 'CAM-01 feed restored' });
           prevCam1.current = s;
         }
@@ -312,7 +352,7 @@ export default function App() {
         setCam1Status('offline');
         if (prevCam1.current !== 'offline') {
           prevCam1.current = 'offline';
-          addEvent('camera_offline', `CAM-01 · ${config.camera1IP}`);
+          addEvent('camera_offline', `CAM-01 · ${currentCam1IP}`);
         }
       }
 
@@ -321,7 +361,7 @@ export default function App() {
         const s = 'online';
         setCam2Status(s);
         if (s !== prevCam2.current) {
-          addEvent('camera_online', `CAM-02 · ${config.camera2IP}`);
+          addEvent('camera_online', `CAM-02 · ${currentCam2IP}`);
           addToast({ borderColor: '#3fb950', bg: 'rgba(63,185,80,0.06)', title: 'Camera Connected', message: 'CAM-02 feed restored' });
           prevCam2.current = s;
         }
@@ -329,7 +369,7 @@ export default function App() {
         setCam2Status('offline');
         if (prevCam2.current !== 'offline') {
           prevCam2.current = 'offline';
-          addEvent('camera_offline', `CAM-02 · ${config.camera2IP}`);
+          addEvent('camera_offline', `CAM-02 · ${currentCam2IP}`);
         }
       }
     };
