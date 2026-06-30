@@ -28,8 +28,14 @@ export const FullscreenCameraModal = ({
     return () => {
       window.removeEventListener('keydown', fn);
       clearTimeout(t);
+      // Force abort the active stream connection by clearing src before unmount
+      const imgEl = document.getElementById(`camera-img-${label}-fullscreen`) as HTMLImageElement | null;
+      if (imgEl) {
+        imgEl.removeAttribute('src');
+        imgEl.src = "";
+      }
     };
-  }, [onClose]);
+  }, [onClose, label]);
 
   return (
     <div

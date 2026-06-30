@@ -52,7 +52,7 @@ export const CameraCard = ({
     } else {
       const t = setTimeout(() => {
         setShouldStream(true);
-      }, 500);
+      }, 1000); // 1 second delay to allow fullscreen socket to close completely
       return () => clearTimeout(t);
     }
   }, [isPaused]);
