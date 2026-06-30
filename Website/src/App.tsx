@@ -153,50 +153,110 @@ export default function App() {
     const poll = async () => {
       if (dead) return;
 
-      // Emergency Status (checking camera 1, camera 2, and esp32 controller)
+      // Define helper status checkers for parallel execution
+      const checkEmergencyCam1 = async () => {
+        try {
+          const res = await safeFetch(`http://${config.camera1IP}/emergency/status`);
+          const data = await res.json() as { emergency: boolean };
+          return { success: true, emergency: data.emergency };
+        } catch {
+          return { success: false, emergency: false };
+        }
+      };
+
+      const checkEmergencyCam2 = async () => {
+        try {
+          const res = await safeFetch(`http://${config.camera2IP}/emergency/status`);
+          const data = await res.json() as { emergency: boolean };
+          return { success: true, emergency: data.emergency };
+        } catch {
+          return { success: false, emergency: false };
+        }
+      };
+
+      const checkEmergencyController = async () => {
+        try {
+          const res = await safeFetch(`http://${config.esp32IP}/emergency/status`);
+          const data = await res.json() as { emergency: boolean };
+          return { success: true, emergency: data.emergency, online: true };
+        } catch {
+          try {
+            await safeFetch(`http://${config.esp32IP}/`, 1500, { mode: 'no-cors' });
+            return { success: false, emergency: false, online: true };
+          } catch {
+            return { success: false, emergency: false, online: false };
+          }
+        }
+      };
+
+      const checkGps = async () => {
+        try {
+          const res = await safeFetch(`http://${config.esp32IP}/gps`);
+          if (!res.ok) throw new Error();
+          const data = await res.json() as GpsData;
+          return { success: true, data };
+        } catch {
+          return { success: false };
+        }
+      };
+
+      const checkCam1Online = async () => {
+        try {
+          await safeFetch(`http://${config.camera1IP}/`, 3000, { mode: 'no-cors' });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const checkCam2Online = async () => {
+        try {
+          await safeFetch(`http://${config.camera2IP}/`, 3000, { mode: 'no-cors' });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      // Execute all checks simultaneously (parallelized promises)
+      const [
+        emergCam1,
+        emergCam2,
+        emergCtrl,
+        gpsRes,
+        cam1Online,
+        cam2Online
+      ] = await Promise.all([
+        checkEmergencyCam1(),
+        checkEmergencyCam2(),
+        checkEmergencyController(),
+        checkGps(),
+        checkCam1Online(),
+        checkCam2Online()
+      ]);
+
+      if (dead) return;
+
+      // 1. Process Emergency status
       let emergencyActive = false;
       let emergencyChecked = false;
 
-      // Try Camera 1
-      try {
-        const res = await safeFetch(`http://${config.camera1IP}/emergency/status`);
-        const data = await res.json() as { emergency: boolean };
-        if (data.emergency) emergencyActive = true;
+      if (emergCam1.success) {
+        if (emergCam1.emergency) emergencyActive = true;
         emergencyChecked = true;
-      } catch (e) {
-        // Ignore and continue
+      }
+      if (emergCam2.success) {
+        if (emergCam2.emergency) emergencyActive = true;
+        emergencyChecked = true;
+      }
+      if (emergCtrl.success) {
+        if (emergCtrl.emergency) emergencyActive = true;
+        emergencyChecked = true;
       }
 
-      // Try Camera 2
-      try {
-        const res = await safeFetch(`http://${config.camera2IP}/emergency/status`);
-        const data = await res.json() as { emergency: boolean };
-        if (data.emergency) emergencyActive = true;
-        emergencyChecked = true;
-      } catch (e) {
-        // Ignore and continue
-      }
+      setCtrlStatus(emergCtrl.online ? 'online' : 'offline');
 
-      // Try ESP32 Controller
-      try {
-        const res = await safeFetch(`http://${config.esp32IP}/emergency/status`);
-        const data = await res.json() as { emergency: boolean };
-        if (data.emergency) emergencyActive = true;
-        emergencyChecked = true;
-        if (!dead) setCtrlStatus('online');
-      } catch (e) {
-        if (!dead) {
-          try {
-            await safeFetch(`http://${config.esp32IP}/`, 1500, { mode: 'no-cors' });
-            setCtrlStatus('online');
-          } catch {
-            setCtrlStatus('offline');
-          }
-        }
-      }
-
-      // Process emergency state changes
-      if (emergencyChecked && !dead) {
+      if (emergencyChecked) {
         if (emergencyActive !== emergency) {
           if (emergencyActive) {
             const now = new Date().toISOString();
@@ -214,90 +274,62 @@ export default function App() {
         setDemoMode(false);
       }
 
-      // GPS
-      try {
-        const res = await safeFetch(`http://${config.esp32IP}/gps`);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      // 2. Process GPS Status
+      if (gpsRes.success && gpsRes.data) {
+        const data = gpsRes.data;
+        setGps({
+          latitude: data.latitude,
+          longitude: data.longitude,
+          satellites: data.satellites ?? 0,
+          valid: data.valid ?? true,
+          accuracy: data.accuracy ?? (data.satellites ? Math.max(1.0, +(15.0 / data.satellites).toFixed(1)) : 5.0),
+          timestamp: data.timestamp ?? new Date().toISOString(),
+        });
+        setGpsStatus('online');
+        setDemoMode(false);
+        if (!prevGpsOk.current) {
+          prevGpsOk.current = true;
         }
-        const data = await res.json() as GpsData;
+      } else {
+        if (prevGpsOk.current || gpsStatus === 'online') {
+          addEvent('gps_update', 'GPS signal not available');
+          addToast({ borderColor: '#58a6ff', bg: 'rgba(88,166,255,0.06)', title: 'GPS Unavailable', message: 'GPS signal not available' });
+        }
+        prevGpsOk.current = false;
+        setGpsStatus('offline');
+      }
 
-        // Validate GPS data
-        if (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
-          throw new Error('Invalid GPS data format');
+      // 3. Process Camera 1 Status
+      if (cam1Online) {
+        const s = 'online';
+        setCam1Status(s);
+        if (s !== prevCam1.current) {
+          addEvent('camera_online', `CAM-01 · ${config.camera1IP}`);
+          addToast({ borderColor: '#3fb950', bg: 'rgba(63,185,80,0.06)', title: 'Camera Connected', message: 'CAM-01 feed restored' });
+          prevCam1.current = s;
         }
-
-        if (!dead) {
-          setGps({
-            latitude: data.latitude,
-            longitude: data.longitude,
-            satellites: data.satellites ?? 0,
-            valid: data.valid ?? true,
-            accuracy: data.accuracy ?? (data.satellites ? Math.max(1.0, +(15.0 / data.satellites).toFixed(1)) : 5.0),
-            timestamp: data.timestamp ?? new Date().toISOString(),
-          });
-          setGpsStatus('online');
-          setDemoMode(false); // Disable demo mode on real GPS contact
-          if (!prevGpsOk.current) {
-            prevGpsOk.current = true;
-          }
-        }
-      } catch (error) {
-        if (!dead) {
-          // Only show warning if we previously had GPS or if this is the first failure after having it
-          if (prevGpsOk.current || gpsStatus === 'online') {
-            addEvent('gps_update', 'GPS signal not available');
-            addToast({ borderColor: '#58a6ff', bg: 'rgba(88,166,255,0.06)', title: 'GPS Unavailable', message: 'GPS signal not available' });
-          }
-          prevGpsOk.current = false;
-          setGpsStatus('offline');
-          // Keep last known GPS data when offline to prevent jumping to mock data
-          // Commented out to allow fallback to demo data when ESP32 is unreachable
-          // setGps(gps);
+      } else {
+        setCam1Status('offline');
+        if (prevCam1.current !== 'offline') {
+          prevCam1.current = 'offline';
+          addEvent('camera_offline', `CAM-01 · ${config.camera1IP}`);
         }
       }
 
-      // Camera 1
-      try {
-        await safeFetch(`http://${config.camera1IP}/`, 3000, { mode: 'no-cors' });
-        if (!dead) {
-          const s = 'online';
-          setCam1Status(s);
-          if (s !== prevCam1.current) {
-            addEvent('camera_online', `CAM-01 · ${config.camera1IP}`);
-            addToast({ borderColor: '#3fb950', bg: 'rgba(63,185,80,0.06)', title: 'Camera Connected', message: 'CAM-01 feed restored' });
-            prevCam1.current = s;
-          }
+      // 4. Process Camera 2 Status
+      if (cam2Online) {
+        const s = 'online';
+        setCam2Status(s);
+        if (s !== prevCam2.current) {
+          addEvent('camera_online', `CAM-02 · ${config.camera2IP}`);
+          addToast({ borderColor: '#3fb950', bg: 'rgba(63,185,80,0.06)', title: 'Camera Connected', message: 'CAM-02 feed restored' });
+          prevCam2.current = s;
         }
-      } catch {
-        if (!dead) {
-          setCam1Status('offline');
-          if (prevCam1.current !== 'offline') {
-            prevCam1.current = 'offline';
-            addEvent('camera_offline', `CAM-01 · ${config.camera1IP}`);
-          }
-        }
-      }
-
-      // Camera 2
-      try {
-        await safeFetch(`http://${config.camera2IP}/`, 3000, { mode: 'no-cors' });
-        if (!dead) {
-          const s = 'online';
-          setCam2Status(s);
-          if (s !== prevCam2.current) {
-            addEvent('camera_online', `CAM-02 · ${config.camera2IP}`);
-            addToast({ borderColor: '#3fb950', bg: 'rgba(63,185,80,0.06)', title: 'Camera Connected', message: 'CAM-02 feed restored' });
-            prevCam2.current = s;
-          }
-        }
-      } catch {
-        if (!dead) {
-          setCam2Status('offline');
-          if (prevCam2.current !== 'offline') {
-            prevCam2.current = 'offline';
-            addEvent('camera_offline', `CAM-02 · ${config.camera2IP}`);
-          }
+      } else {
+        setCam2Status('offline');
+        if (prevCam2.current !== 'offline') {
+          prevCam2.current = 'offline';
+          addEvent('camera_offline', `CAM-02 · ${config.camera2IP}`);
         }
       }
     };

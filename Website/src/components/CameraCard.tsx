@@ -30,10 +30,21 @@ export const CameraCard = ({
 }: CameraCardProps) => {
   const [imgFailed, setImgFailed] = useState(false);
   const [shouldStream, setShouldStream] = useState(!isPaused);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     setImgFailed(false);
-  }, [ip, status]);
+  }, [ip, status, retryKey]);
+
+  useEffect(() => {
+    if (imgFailed && status === 'online') {
+      const t = setTimeout(() => {
+        setImgFailed(false);
+        setRetryKey(prev => prev + 1);
+      }, 5000); // Auto-retry after 5 seconds
+      return () => clearTimeout(t);
+    }
+  }, [imgFailed, status]);
 
   useEffect(() => {
     if (isPaused) {
@@ -128,7 +139,7 @@ export const CameraCard = ({
             <>
               <img
                 id={`camera-img-${label}`}
-                src={shouldStream ? `http://${ip}:81/stream?t=${Date.now()}` : ""}
+                src={shouldStream ? `http://${ip}:81/stream?t=${Date.now()}&r=${retryKey}` : ""}
                 alt={`${label} live feed`}
                 crossOrigin="anonymous"
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: shouldStream ? 'block' : 'none' }}
@@ -184,9 +195,30 @@ export const CameraCard = ({
               >
                 <VideoOff size={24} color="#f85149" />
               </div>
-              <div>
+              <div className="flex flex-col items-center">
                 <div className="font-semibold" style={{ fontSize: 14, color: '#f85149', fontFamily: 'Inter, sans-serif' }}>No Signal</div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#484f58', marginTop: 4 }}>{ip}:81</div>
+                {status === 'online' && (
+                  <button
+                    onClick={() => {
+                      setImgFailed(false);
+                      setRetryKey(prev => prev + 1);
+                    }}
+                    className="crimeshield-btn mt-3"
+                    style={{
+                      padding: '4px 12px',
+                      fontSize: 11,
+                      color: '#58a6ff',
+                      border: '1px solid rgba(88,166,255,0.2)',
+                      background: 'rgba(88,166,255,0.05)',
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      marginTop: '8px'
+                    }}
+                  >
+                    Reconnect Stream
+                  </button>
+                )}
               </div>
             </div>
           )}
