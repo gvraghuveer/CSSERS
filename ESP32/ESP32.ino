@@ -22,6 +22,8 @@ const unsigned long ipSyncInterval = 60000; // Sync every 60 seconds
 
 bool lastButtonState = HIGH;
 bool emergencyState = false;
+unsigned long lastBackendCheck = 0;
+const unsigned long backendCheckInterval = 3000; // Check backend status every 3 seconds during emergency
 
 unsigned long lastToneChange = 0;
 bool toneState = false;
@@ -105,6 +107,27 @@ void backendAlertTask(void *pvParameters) {
   http.end();
   delete params; // Free memory allocated on heap
   vTaskDelete(NULL); // Delete the task
+}
+
+void checkBackendStatusTask(void *pvParameters) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = String(backendServer) + "/api/call-state";
+    http.begin(url);
+    http.setTimeout(2000);
+    
+    int responseCode = http.GET();
+    if (responseCode == 200) {
+      String response = http.getString();
+      if (response.indexOf("\"active\":false") != -1) {
+        Serial.println("[Auto-Clear] Backend call is inactive. Clearing emergency state on ESP32.");
+        emergencyState = false;
+        emergencyOff();
+      }
+    }
+    http.end();
+  }
+  vTaskDelete(NULL);
 }
 
 // ========================================
@@ -481,6 +504,12 @@ void loop() {
         ledcWriteTone(BUZZER_PIN, 3000);
       }
     }
+  }
+
+  // Check backend emergency status periodically during emergency (for self-clearing)
+  if (emergencyState && (millis() - lastBackendCheck > backendCheckInterval)) {
+    lastBackendCheck = millis();
+    xTaskCreate(checkBackendStatusTask, "CheckBackendTask", 4096, NULL, 1, NULL);
   }
 
   // Heartbeat trigger

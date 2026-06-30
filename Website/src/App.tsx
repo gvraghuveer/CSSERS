@@ -65,6 +65,7 @@ export default function App() {
   const [callResponder, setCallResponder] = useState<string | null>(null);
   const socketRef = useRef<any>(null);
   const handleEndCallRef = useRef<(() => void) | null>(null);
+  const lastClearedRef = useRef<number>(0);
 
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
@@ -141,6 +142,7 @@ export default function App() {
   }, [addEvent, addToast, audioEnabled, config.audioAlerts]);
 
   const handleClear = useCallback(() => {
+    lastClearedRef.current = Date.now();
     const dur = fmtDuration(emergencyDuration);
     setEmergency(false); setEmergencyStart(null);
     addEvent('emergency_off', `Duration: ${dur}`);
@@ -297,6 +299,12 @@ export default function App() {
       setCtrlStatus(emergCtrl.online ? 'online' : 'offline');
 
       if (emergencyChecked) {
+        // Cooldown safety window: ignore hardware triggers for 6 seconds after clearing
+        const isCooldown = (Date.now() - lastClearedRef.current) < 6000;
+        if (isCooldown) {
+          emergencyActive = false;
+        }
+
         if (emergencyActive !== emergency) {
           if (emergencyActive) {
             const now = new Date().toISOString();

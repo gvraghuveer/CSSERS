@@ -337,6 +337,11 @@ app.post('/api/end-call', (req, res) => {
   res.json({ success: true });
 });
 
+// GET call state endpoint for ESP32 Controller self-clearing
+app.get('/api/call-state', (req, res) => {
+  res.json({ active: callState.active });
+});
+
 // Twilio DTMF callback for key press selection
 app.post('/api/twilio/gather-input', async (req, res) => {
   const { pole, lat, lng } = req.query;
