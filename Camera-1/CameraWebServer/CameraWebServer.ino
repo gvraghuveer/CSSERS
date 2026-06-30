@@ -179,7 +179,11 @@ void setup() {
 
 void loop() {
   if (emergencyMode) {
-    digitalWrite(4, HIGH);
+    if (millis() - lastFlash > 300) {
+      lastFlash = millis();
+      flashState = !flashState;
+      digitalWrite(4, flashState);
+    }
   } else {
     digitalWrite(4, LOW);
   }
