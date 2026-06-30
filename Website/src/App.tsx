@@ -881,13 +881,27 @@ export default function App() {
         triggerCall();
       }
     } else {
+      // Clear emergency on all hardware devices
+      const clearHardware = async () => {
+        try {
+          await Promise.all([
+            safeFetch(`http://${config.camera1IP}/emergency/off`, 1500, { mode: 'no-cors' }),
+            safeFetch(`http://${config.camera2IP}/emergency/off`, 1500, { mode: 'no-cors' }),
+            safeFetch(`http://${config.esp32IP}/emergency/off`, 1500, { mode: 'no-cors' })
+          ]);
+        } catch (e) {
+          console.warn('Failed to clear emergency states on hardware:', e);
+        }
+      };
+      clearHardware();
+
       if (callInitiated) {
         setCallInitiated(false);
         // Reset call status and tell backend to end
         fetch(`${config.backendUrl}/api/end-call`, { method: 'POST' }).catch(() => {});
       }
     }
-  }, [emergency, callInitiated, config.backendUrl, config.esp32IP]);
+  }, [emergency, callInitiated, config.backendUrl, config.esp32IP, config.camera1IP, config.camera2IP]);
 
   const fallbackGps = (() => {
     const found = evidence.find(
