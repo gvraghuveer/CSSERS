@@ -146,13 +146,32 @@ Vercel is optimal for hosting static React sites:
    * `VITE_BACKEND_URL` (Set this to your newly deployed Render URL, e.g., `https://crimeshield-backend.onrender.com`).
 4. Click **Deploy**.
 
-### 3. Twilio Webhook Configuration
-To enable automatic dashboard clearing when an emergency call ends:
-1. In your **Twilio Console**, go to **Phone Numbers** -> **Active Numbers** -> Click your number.
-2. Under the **Voice & Fax** section:
-   * **A CALL COMES IN**: Set to webhook -> `https://your-backend-domain.com/api/twilio/gather-input` (HTTP POST).
-   * **PRIMARY HANDLER FAILS**: Set to webhook -> `https://your-backend-domain.com/api/twilio/call-status` (HTTP POST).
-3. Save changes.
+### 3. Twilio Account Setup & Webhook Configuration
+
+Twilio acts as the voice carrier and SMS gateway for CrimeShield, automating outbound notifications and handling incoming webhooks to sync dashboard alert overlays.
+
+#### Step A: Create a Twilio Account & Retrieve Credentials
+1. Go to [twilio.com](https://www.twilio.com) and sign up for a free developer account or log in.
+2. From the **Twilio Console Dashboard**, locate and copy your API keys:
+   * **Account SID** (e.g. `AC...`)
+   * **Auth Token** (hidden by default, click view)
+3. Paste these values into your `Backend/.env` file under `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`.
+
+#### Step B: Buy a Twilio Virtual Phone Number
+1. In the console sidebar, go to **Phone Numbers** -> **Manage** -> **Buy a Number** (or click "Get a Trial Number" if on a trial account).
+2. Choose a number that supports both **Voice** and **SMS** capabilities.
+3. Save the number (with country code, e.g., `+18885550199`) to your `Backend/.env` file under `TWILIO_PHONE_NUMBER`.
+
+#### Step C: Configure Webhook Routing
+Since Twilio needs to fetch voice instructions dynamically from your server, you must link your backend endpoints to your phone number settings in the Twilio Console:
+1. Go to **Phone Numbers** -> **Active Numbers** and click on your Twilio Phone Number.
+2. Scroll down to the **Voice & Fax** section:
+   * **A CALL COMES IN**: Set to **Webhook**, paste `https://your-backend-domain.com/api/twilio/gather-input`, and select **HTTP POST**. (This endpoint returns the TwiML XML instructions to dial the emergency contact and prompt for inputs).
+   * **PRIMARY HANDLER FAILS**: Set to **Webhook**, paste `https://your-backend-domain.com/api/twilio/call-status`, and select **HTTP POST**.
+3. Scroll further down to the **Call Status Changes** section:
+   * **STATUS CALLBACK URL**: Paste `https://your-backend-domain.com/api/twilio/call-status` and select **HTTP POST**. 
+   * *This callback is critical: when the responder hangs up (transitioning the call state to `completed`), Twilio hits this URL, allowing the backend to broadcast a Socket.IO event and auto-clear the dashboard panic overlays.*
+4. Click **Save** at the bottom of the page.
 
 ### 4. Google Drive Image Uploader (Apps Script)
 To save snapshots from the cameras straight to Google Drive:
