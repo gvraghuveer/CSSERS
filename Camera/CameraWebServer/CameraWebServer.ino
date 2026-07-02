@@ -3,12 +3,14 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
+#include <WiFiClientSecure.h>
+
 bool emergencyMode = false;
 bool flashState = false;
 unsigned long lastFlash = 0;
 
 // Registry Config
-const char* backendServer = "https://crimeshield-backend-4w0n.onrender.com";
+const char* backendServer = "http://YOUR_BACKEND_IP:5001";
 unsigned long lastHeartbeat = 0;
 const unsigned long heartbeatInterval = 20000; // Heartbeat every 20 seconds
 
@@ -16,8 +18,8 @@ const unsigned long heartbeatInterval = 20000; // Heartbeat every 20 seconds
 // WIFI SETTINGS
 // ========================================
 
-const char *ssid = "A9488";
-const char *password = "ilel95898";
+const char *ssid = "YOUR_WIFI_SSID";
+const char *password = "YOUR_WIFI_PASSWORD";
 
 // ========================================
 // FUNCTION DECLARATIONS
@@ -31,11 +33,19 @@ void startCameraServer();
 void registerDevice() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    http.begin(String(backendServer) + "/api/device/register");
+    WiFiClientSecure client;
+    
+    if (String(backendServer).startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, String(backendServer) + "/api/device/register");
+    } else {
+      http.begin(String(backendServer) + "/api/device/register");
+    }
+    
     http.addHeader("Content-Type", "application/json");
     
     // Sends JSON with camera-01 deviceId and local IP
-    String payload = "{\"deviceId\":\"camera-02\",\"deviceType\":\"camera\",\"mac\":\"" + WiFi.macAddress() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+    String payload = "{\"deviceId\":\"camera-01\",\"deviceType\":\"camera\",\"mac\":\"" + WiFi.macAddress() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
     
     int httpResponseCode = http.POST(payload);
     Serial.print("[Registry] Register code: ");
@@ -47,10 +57,18 @@ void registerDevice() {
 void sendHeartbeat() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    http.begin(String(backendServer) + "/api/device/heartbeat");
+    WiFiClientSecure client;
+    
+    if (String(backendServer).startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, String(backendServer) + "/api/device/heartbeat");
+    } else {
+      http.begin(String(backendServer) + "/api/device/heartbeat");
+    }
+    
     http.addHeader("Content-Type", "application/json");
     
-    String payload = "{\"deviceId\":\"camera-02\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+    String payload = "{\"deviceId\":\"camera-01\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
     
     int httpResponseCode = http.POST(payload);
     Serial.print("[Registry] Heartbeat code: ");

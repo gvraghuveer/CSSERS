@@ -5,12 +5,12 @@ export const CONFIG_KEY = 'crimeshield_config';
 export const DEMO_BASE = { lat: 12.971598, lng: 77.594566 };
 
 export const DEFAULT_CFG: AppConfig = {
-  camera1IP: import.meta.env.VITE_CAMERA1_IP || '10.200.21.145',
-  camera2IP: import.meta.env.VITE_CAMERA2_IP || '192.168.1.7',
+  camera1IP: import.meta.env.VITE_CAMERA1_IP || '192.168.1.101',
+  camera2IP: import.meta.env.VITE_CAMERA2_IP || '192.168.1.102',
   esp32IP: import.meta.env.VITE_ESP32_IP || '192.168.1.100',
   pollingInterval: 5,
   audioAlerts: true,
-  backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
+  backendUrl: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001',
   emergencyContact: import.meta.env.VITE_EMERGENCY_CONTACT || '+1234567890',
   poleName: import.meta.env.VITE_POLE_NAME || 'Pole A',
   fallbackLatitude: Number(import.meta.env.VITE_FALLBACK_LATITUDE) || 12.971598,

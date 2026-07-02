@@ -1,17 +1,18 @@
-# CrimeShield - Smart Emergency Response System
+# CrimeShield — Smart Emergency Response System
 
-An integrated IoT security solution that coordinates hardware triggers, sensor readouts, real-time GPS tracking, and dual-camera video feeds. When an emergency is triggered, the system sounds sirens, flashes strobe lights, captures high-resolution evidence snapshots, and automatically backs up data and video recordings to Supabase and Google Drive.
+An integrated, enterprise-grade IoT security solution that coordinates hardware triggers, sensor readouts, real-time GPS tracking, and dual-camera video feeds. When an emergency is triggered, the system sounds sirens, flashes strobe lights, captures high-resolution evidence snapshots, and automatically backs up data and video recordings to Supabase and Google Drive.
 
 ---
 
 ## 🚀 Key Features
 
-* **Dual-Camera Live Streaming:** Real-time MJPEG video feeds from two ESP32-CAM modules directly on the dashboard.
-* **Warning Systems:** Police siren buzzer connected to the main ESP32 and flashing white LED strobe lights on the ESP32-CAMs.
-* **Real-Time GPS Tracking:** Displays live coordinates, accuracy, and satellite count on an interactive map.
+* **Dual-Camera Live Streaming:** Real-time MJPEG video feeds from ESP32-CAM modules directly on the dashboard.
+* **Hardware Resolution Controls:** Select between VGA, SVGA, HD (XGA), or UXGA streams directly from the dashboard, dynamically reconfiguring the camera sensors over the network.
 * **Automated Voice Calls & SMS Alert:** Triggers outbound phone calls to emergency services using Twilio and sends a text message with a Google Maps location link.
-* **Automatic Dashboard Reset:** Integrates Twilio webhooks with Socket.IO to close the overlay and clear warning lights automatically when the call hangs up.
+* **Automatic Call Teardown:** Webhook integrations with Twilio and Socket.IO to close the dashboard overlay and clear warning lights automatically when the responder hangs up.
+* **Real-Time GPS Tracking:** Displays live coordinates and satellite telemetry on an interactive OpenStreetMap tracking card.
 * **Database GPS Fallback:** If the physical GPS module goes offline, the dashboard automatically falls back to showing the last-saved coordinates fetched from the database.
+* **Passwordless Operations:** Clean, simplified backend authentication routes that automatically authorize dashboard operations on local and production environments.
 * **Cloud Backup & Evidence Logging:** Automatically logs emergency events, GPS data, snapshots, and video recordings to a Supabase database, and uploads media files to Google Drive.
 
 ---
@@ -19,20 +20,20 @@ An integrated IoT security solution that coordinates hardware triggers, sensor r
 ## 📂 Repository Structure
 
 ```text
-├── Backend/                # Outbound Calling & SMS Server
-│   ├── server.js           # Node.js server (Express + Socket.IO + Twilio)
+├── Backend/                # Outbound Calling, SMS & Registry Server
+│   ├── server.js           # Express + Socket.IO + Twilio Integration
 │   ├── package.json        
-│   └── .env                # Twilio credentials & configuration
+│   └── .env                # Twilio, Supabase & Port configurations
 │
-├── Camera-1/               # ESP32-CAM firmware
+├── Camera-1/               # ESP32-CAM Firmware
 │   └── CameraWebServer/    
-│       ├── CameraWebServer.ino   # Main camera sketch
-│       └── app_httpd.cpp         # Camera web server endpoints (CORS enabled)
+│       ├── CameraWebServer.ino   # Camera sketch (HTTPS/CORS enabled)
+│       └── app_httpd.cpp         # Camera web server endpoints
 │
-├── ESP32/                  # ESP32 Main Controller firmware
-│   └── ESP32.ino           # Siren, Buzzer, Button, GPS serial parsing (CORS enabled)
+├── ESP32/                  # ESP32 Main Controller Firmware
+│   └── ESP32.ino           # Siren, Buzzer, Button & GPS serial parsing
 │
-├── Website/                # Dashboard Frontend (Vite + React)
+├── Website/                # React Dashboard Frontend (Vite + React)
 │   ├── src/                # React components, styles, & hooks
 │   ├── public/             # Static assets
 │   ├── package.json        
@@ -43,93 +44,232 @@ An integrated IoT security solution that coordinates hardware triggers, sensor r
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration & Environment Variables
 
 ### 1. Web Dashboard (`Website/.env`)
-Create a `.env` file inside the `Website` directory with your cloud credentials:
+Create a `.env` file inside the `Website` directory:
 
 ```env
-VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-VITE_APPS_SCRIPT_URL=your-google-apps-script-deployment-url
+VITE_BACKEND_URL=http://localhost:5001
 ```
 
-*Note: The frontend configures the device IP addresses (ESP32 and ESP32-CAMs) inside the dashboard's settings panel, which is stored in local storage.*
+*Note: Device IP addresses are saved locally in your browser's settings modal (the gear icon on the dashboard) and will override environment defaults.*
 
 ### 2. Calling & SMS Backend (`Backend/.env`)
-Create a `.env` file inside the `Backend` directory with your Twilio credentials and forwarding URL:
+Create a `.env` file inside the `Backend` directory:
 
 ```env
-PORT=3001
+PORT=5001
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-service-role-key
 TWILIO_ACCOUNT_SID=your-twilio-account-sid
 TWILIO_AUTH_TOKEN=your-twilio-auth-token
 TWILIO_PHONE_NUMBER=your-twilio-phone-number
 EMERGENCY_CONTACT=your-recipient-phone-number
-PUBLIC_URL=your-ngrok-or-public-domain-url
+PUBLIC_URL=https://your-subdomain.ngrok-free.app
 ```
-
-### 3. Microcontrollers (Arduino C++)
-To connect your hardware to the local network and each other, update the following configurations:
-
-* **Main Controller ([ESP32.ino](file:///d:/Codes/IoT%20Project/CrimeShield%20-%20Smart%20Emergency%20Response%20System/ESP32/ESP32.ino)):**
-  * Lines 9–10: Update the Wi-Fi credentials (`ssid` and `password`).
-  * Lines 12–13: Update `CAMERA_1_IP` and `CAMERA_2_IP` with the IP addresses of your camera modules.
-* **Camera Modules ([CameraWebServer.ino](file:///d:/Codes/IoT%20Project/CrimeShield%20-%20Smart%20Emergency%20Response%20System/Camera-1/CameraWebServer/CameraWebServer.ino)):**
-  * Lines 12–13: Update the Wi-Fi credentials (`ssid` and `password`).
 
 ---
 
-## 🛠️ Setup & Installation
+## 🛠️ Local Installation & Running
 
-### 1. Hardware Firmware Flashing
-Using the **Arduino IDE**, upload the respective code to your microcontrollers:
-
-* **Main Controller:** Open [ESP32/ESP32.ino](file:///d:/Codes/IoT%20Project/CrimeShield%20-%20Smart%20Emergency%20Response%20System/ESP32/ESP32.ino) and upload it to your ESP32 board.
-* **Camera Modules:** Open [Camera-1/CameraWebServer/CameraWebServer.ino](file:///d:/Codes/IoT%20Project/CrimeShield%20-%20Smart%20Emergency%20Response%20System/Camera-1/CameraWebServer/CameraWebServer.ino) and upload it to **both** of your ESP32-CAM boards.
-  * *Update the Wi-Fi credentials (`ssid` and `password`) inside both `.ino` files before uploading.*
-
-### 2. Running the Web Dashboard
-Navigate to the `Website` folder, install the dependencies, and start the development server:
-
-```bash
-cd Website
-npm install
-npm run dev
-```
-
-The dashboard will start running at `http://localhost:5173`. Open it in your browser, click the settings icon, and input the local IP addresses assigned to your ESP32 devices by your Wi-Fi router.
-
-### 3. Running the Calling Backend
-Navigate to the `Backend` folder, install dependencies, and start the backend server:
+### 1. Run the Backend
+Navigate to the `Backend` directory, install dependencies, and start the development server:
 
 ```bash
 cd Backend
 npm install
 npm run dev
 ```
+The server will boot on port `5001`.
 
-*Note: If you want the dashboard overlay to close automatically when you hang up the call, run `ngrok http 3001` in another window, and paste the generated HTTPS URL as `PUBLIC_URL` in `Backend/.env` before starting the server.*
+### 2. Run the Frontend
+In a new terminal window, navigate to the `Website` directory, install dependencies, and start the Vite development server:
+
+```bash
+cd Website
+npm install
+npm run dev
+```
+The dashboard will open on `http://localhost:5173`. Open this URL, click the gear icon in the header, and ensure the **Backend URL** is set to `http://localhost:5001`.
 
 ---
 
-## 📡 API Endpoints (CORS Enabled)
+## 💾 Supabase Database Setup
 
-### ESP32 Main Controller (`10.200.21.100`)
-* `GET /gps` — Returns JSON object with `latitude`, `longitude`, `satellites`, and `valid` flags.
-* `GET /emergency/status` — Returns emergency activation state `{"emergency": true/false}`.
-* `GET /emergency/on` — Activates the hardware siren alarm.
-* `GET /emergency/off` — Disables the hardware siren alarm.
+To store emergency logs and coordinates, run the following SQL command in your **Supabase SQL Editor**:
 
-### ESP32-CAM Modules (`10.200.21.66` & `10.200.21.145`)
-* `GET /capture` — Captures and returns a single JPEG image frame.
-* `GET :81/stream` — Initiates the live MJPEG video stream (on port 81).
-* `GET /emergency/on` — Starts the flashing warning strobe light.
-* `GET /emergency/off` — Stops the flashing warning strobe light.
-* `GET /flash/on` — Turns the onboard flash LED on solid.
-* `GET /flash/off` — Turns the onboard flash LED off.
+```sql
+CREATE TABLE IF NOT EXISTS public.events (
+    id bigint GENERATED BY DEFAULT AS IDENTITY,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    event_type text,
+    status text,
+    latitude double precision,
+    longitude double precision,
+    satellites integer,
+    image_url text,
+    reported_by text,
+    notes text,
+    CONSTRAINT events_pkey PRIMARY KEY (id)
+);
 
-### Calling & SMS Backend (`http://localhost:3001`)
-* `POST /api/start-call` — Triggers an outbound Twilio call and sends the GPS coordinates via SMS.
-* `POST /api/end-call` — Ends the active emergency call state.
-* `POST /api/twilio/call-status` — Receives call progress webhook updates from Twilio (ringing, connected, completed) to sync the frontend dashboard.
-* `POST /api/twilio/gather-input` — Receives interactive DTMF keypad responses from Twilio.
+-- Enable Realtime for live dashboard streaming
+alter publication supabase_realtime add table public.events;
+```
+
+---
+
+## ☁️ Cloud Hosting & Deployment Guide
+
+### 1. Deploy the Backend to Render.com
+Render is ideal for hosting Node.js servers:
+1. Create a new **Web Service** on Render and link this Git repository.
+2. Set the **Root Directory** to `Backend`.
+3. Set the **Build Command** to `npm install`.
+4. Set the **Start Command** to `node server.js`.
+5. Under **Environment Variables**, add all keys defined in `Backend/.env`.
+6. Make sure to set `PORT=10000` (Render's default port).
+
+> [!TIP]
+> **ESP32 HTTPS Support**: Our updated firmware includes `WiFiClientSecure` with `client.setInsecure()` enabled. The microcontrollers will automatically communicate with the secure `https` Render URL without needing manual SSL/TLS certificate uploads.
+
+### 2. Deploy the Frontend to Vercel
+Vercel is optimal for hosting static React sites:
+1. Install the Vercel CLI or link your repository to the Vercel Dashboard.
+2. Select `Website` as the root directory.
+3. Configure the following environment variables:
+   * `VITE_SUPABASE_URL`
+   * `VITE_SUPABASE_ANON_KEY`
+   * `VITE_BACKEND_URL` (Set this to your newly deployed Render URL, e.g., `https://crimeshield-backend.onrender.com`).
+4. Click **Deploy**.
+
+### 3. Twilio Webhook Configuration
+To enable automatic dashboard clearing when an emergency call ends:
+1. In your **Twilio Console**, go to **Phone Numbers** -> **Active Numbers** -> Click your number.
+2. Under the **Voice & Fax** section:
+   * **A CALL COMES IN**: Set to webhook -> `https://your-backend-domain.com/api/twilio/gather-input` (HTTP POST).
+   * **PRIMARY HANDLER FAILS**: Set to webhook -> `https://your-backend-domain.com/api/twilio/call-status` (HTTP POST).
+3. Save changes.
+
+### 4. Google Drive Image Uploader (Apps Script)
+To save snapshots from the cameras straight to Google Drive:
+1. Go to [script.google.com](https://script.google.com) and create a new project.
+2. Paste the following script:
+   ```javascript
+   function doPost(e) {
+     try {
+       var data = JSON.parse(e.postData.contents);
+       var folderId = "YOUR_GOOGLE_DRIVE_FOLDER_ID";
+       var folder = DriveApp.getFolderById(folderId);
+       
+       var contentType = data.mimeType || "image/jpeg";
+       var decoded = Utilities.base64Decode(data.image);
+       var blob = Utilities.newBlob(decoded, contentType, data.filename);
+       var file = folder.createFile(blob);
+       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+       
+       return ContentService.createTextOutput(JSON.stringify({ 
+         success: true, 
+         url: file.getUrl() 
+       })).setMimeType(ContentService.MimeType.JSON);
+     } catch (err) {
+       return ContentService.createTextOutput(JSON.stringify({ 
+         success: false, 
+         error: err.toString() 
+       })).setMimeType(ContentService.MimeType.JSON);
+     }
+   }
+   ```
+3. Deploy as a **Web App**:
+   * Set **Execute as**: `Me`.
+   * Set **Who has access**: `Anyone`.
+4. Copy the deployment URL and add it to your environment files as `VITE_APPS_SCRIPT_URL`.
+
+---
+
+## 🔌 Hardware Schematics & Wiring Connections
+
+### 1. Main ESP32 Controller Wiring Diagram
+Below is the wiring schematic for the main ESP32 controller node, connecting the Neo-6M GPS sensor, panic button, alert LEDs, and buzzer:
+
+```mermaid
+graph TD
+    subgraph ESP32 Main Node
+        ESP32[ESP32 NodeMCU]
+        Buzzer[Buzzer Pin 12]
+        Button[Panic Button Pin 13]
+        LED1[LED 1 Pin 25]
+        LED2[LED 2 Pin 26]
+        GPS_RX[GPIO 16 / RX2]
+        GPS_TX[GPIO 17 / TX2]
+        3V3[3.3V Power]
+        GND[GND Common]
+    end
+
+    subgraph NEO-6M GPS Module
+        GPS_TXD[TXD Pin]
+        GPS_RXD[RXD Pin]
+        GPS_VCC[VCC Pin]
+        GPS_GND[GND Pin]
+    end
+
+    GPS_TXD ==>|Serial RX| GPS_RX
+    GPS_RXD ==>|Serial TX| GPS_TX
+    3V3 ==>|Power| GPS_VCC
+    GND ==>|Ground| GPS_GND
+    
+    Button -->|Active Low Pullup| GND
+    Buzzer -->|PWM Audio Output| GND
+    LED1 -->|Indicator Strobe| GND
+    LED2 -->|Indicator Strobe| GND
+```
+
+### 2. ESP32-CAM Programming & Flashing Connections
+Flashing the ESP32-CAM requires an FTDI USB-to-TTL Adapter (unless using an ESP32-CAM-MB micro-USB shield). During flashing, **GPIO 0 must be shorted to GND** during boot to put the chip into download mode:
+
+```mermaid
+graph LR
+    subgraph FTDI USB Adapter
+        VCC[VCC 5V]
+        FGND[GND]
+        TX[TXD]
+        RX[RXD]
+    end
+
+    subgraph ESP32-CAM Module
+        CAM_5V[5V Power]
+        CGND[GND]
+        U0R[U0R / GPIO 3]
+        U0T[U0T / GPIO 1]
+        GPIO0[GPIO 0]
+    end
+
+    VCC ===>|Power| CAM_5V
+    FGND ===>|Common Ground| CGND
+    TX ===>|Serial RX| U0R
+    RX ===>|Serial TX| U0T
+    
+    %% Flashing Mode connection
+    GPIO0 -.->|Short Jumper for Flash Mode| CGND
+```
+
+### Pin Mapping Reference Table
+
+| Device | Component | ESP32 Pin | GPS Pin | FTDI Pin | Description |
+|---|---|---|---|---|---|
+| **ESP32 Main** | Neo-6M GPS | `GPIO 16 (RX2)` | `TXD` | — | Receives NMEA telemetry streams |
+| **ESP32 Main** | Neo-6M GPS | `GPIO 17 (TX2)` | `RXD` | — | Transmits commands to GPS module |
+| **ESP32 Main** | Panic Button | `GPIO 13` | — | — | Active LOW input (uses internal Pullup) |
+| **ESP32 Main** | Alert Buzzer | `GPIO 12` | — | — | PWM audio output for sirens |
+| **ESP32 Main** | Status LED 1 | `GPIO 25` | — | — | Status indicator LED |
+| **ESP32 Main** | Status LED 2 | `GPIO 26` | — | — | Status indicator LED |
+| **ESP32-CAM** | FTDI Adapter | `5V` | — | `VCC (5V)` | High current power source |
+| **ESP32-CAM** | FTDI Adapter | `GND` | — | `GND` | Common ground path |
+| **ESP32-CAM** | FTDI Adapter | `U0R (GPIO 3)`| — | `TXD` | Flashing interface receive |
+| **ESP32-CAM** | FTDI Adapter | `U0T (GPIO 1)`| — | `RXD` | Flashing interface transmit |
+| **ESP32-CAM** | Boot Mode Jumper| `GPIO 0` | — | `GND` | Short to boot into flash downloader mode |
+| **ESP32-CAM** | Flash Strobe | `GPIO 4` | — | — | Control pin for on-board white high-power flash LED |
+| **ESP32-CAM** | Status LED | `GPIO 33` | — | — | On-board red LED indicator (active low) |

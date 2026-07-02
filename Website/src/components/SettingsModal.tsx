@@ -69,10 +69,10 @@ export const SettingsModal = ({
         {/* Fields */}
         <div className="px-5 py-5 flex flex-col gap-4">
           {([
-            ['Camera 1 IP', 'camera1IP', '10.200.21.145'],
-            ['Camera 2 IP', 'camera2IP', '192.168.1.7'],
+            ['Camera 1 IP', 'camera1IP', '192.168.1.101'],
+            ['Camera 2 IP', 'camera2IP', '192.168.1.102'],
             ['ESP32 IP', 'esp32IP', '192.168.1.100'],
-            ['Backend URL', 'backendUrl', 'http://localhost:3001'],
+            ['Backend URL', 'backendUrl', 'http://localhost:5001'],
           ] as const).map(([label, key, placeholder]) => (
             <div key={key}>
               <label style={{ display: 'block', fontSize: 12, color: '#7d8590', marginBottom: 6, fontFamily: 'Inter, sans-serif' }}>

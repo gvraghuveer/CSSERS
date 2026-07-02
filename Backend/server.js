@@ -12,6 +12,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware pass-through (Authentication disabled)
+const verifyToken = (req, res, next) => {
+  next();
+};
+
 app.get('/', (req, res) => {
   res.send('CrimeShield Emergency Response System Backend is active and running.');
 });
@@ -24,7 +29,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5001;
 
 // In-Memory Device Registry
 const devices = new Map();
@@ -95,7 +100,7 @@ io.on('connection', (socket) => {
 });
 
 // Trigger Twilio emergency voice call
-app.post('/api/start-call', async (req, res) => {
+app.post('/api/start-call', verifyToken, async (req, res) => {
   const { pole, latitude, longitude } = req.body;
 
   if (!pole) {
@@ -170,6 +175,38 @@ app.post('/api/start-call', async (req, res) => {
     longitude: finalLng
   };
   io.emit('call_state', callState);
+
+  // Log this emergency incident in the Supabase 'events' table
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+    const supabaseInsertUrl = `${process.env.SUPABASE_URL}/rest/v1/events`;
+    console.log(`[CrimeShield] Logging emergency activation event to Supabase: ${supabaseInsertUrl}`);
+    fetch(supabaseInsertUrl, {
+      method: 'POST',
+      headers: {
+        'apikey': process.env.SUPABASE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        event_type: 'Emergency Alert',
+        status: 'ACTIVE',
+        latitude: finalLat,
+        longitude: finalLng,
+        satellites: 7,
+        reported_by: 'CrimeShield Controller',
+        notes: `SOS Emergency Button Triggered at ${finalPole}. Alarms activated and responder dispatch sequence initiated.`
+      })
+    }).then(response => {
+      if (!response.ok) {
+        console.error(`[CrimeShield] Failed to log event to Supabase status: ${response.status}`);
+      } else {
+        console.log('[CrimeShield] Emergency event logged successfully in Supabase.');
+      }
+    }).catch(err => {
+      console.error('[CrimeShield] Error logging emergency to Supabase:', err);
+    });
+  }
 
   if (isTwilioConfigured && twilioClient) {
     try {
@@ -309,7 +346,7 @@ app.post('/api/start-call', async (req, res) => {
 });
 
 // End call endpoint
-app.post('/api/end-call', (req, res) => {
+app.post('/api/end-call', verifyToken, (req, res) => {
   console.log('[CrimeShield] Ending active emergency call(s)');
 
   // Terminate any active Twilio calls
@@ -573,7 +610,7 @@ app.post('/api/device/heartbeat', (req, res) => {
 });
 
 // 3. GET /api/device/:deviceId
-app.get('/api/device/:deviceId', (req, res) => {
+app.get('/api/device/:deviceId', verifyToken, (req, res) => {
   const { deviceId } = req.params;
   const device = devices.get(deviceId);
   if (!device) {
@@ -583,7 +620,7 @@ app.get('/api/device/:deviceId', (req, res) => {
 });
 
 // 4. GET /api/devices
-app.get('/api/devices', (req, res) => {
+app.get('/api/devices', verifyToken, (req, res) => {
   const allDevices = Array.from(devices.values());
   res.json(allDevices);
 });

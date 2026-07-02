@@ -2,21 +2,22 @@
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <TinyGPSPlus.h>
+#include <WiFiClientSecure.h>
 #define BUTTON_PIN 13
 #define BUZZER_PIN 12
 #define LED1_PIN 25
 #define LED2_PIN 26
-const char* ssid = "A9488";
-const char* password = "ilel95898";
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // Backend URL
-const char* backendServer = "https://crimeshield-backend-4w0n.onrender.com";
+const char* backendServer = "http://YOUR_BACKEND_IP:5001";
 unsigned long lastHeartbeat = 0;
 const unsigned long heartbeatInterval = 20000;  // Heartbeat every 20 seconds
 
 // Cached Camera IPs (initialized with fallbacks)
-String camera1CachedIP = "10.200.21.66";
-String camera2CachedIP = "10.200.21.145";
+String camera1CachedIP = "192.168.1.101";
+String camera2CachedIP = "192.168.1.102";
 unsigned long lastIpSync = 0;
 const unsigned long ipSyncInterval = 60000; // Sync every 60 seconds
 
@@ -80,13 +81,19 @@ void triggerCamTask(void *pvParameters) {
 void backendAlertTask(void *pvParameters) {
   BackendTaskParams* params = (BackendTaskParams*)pvParameters;
   HTTPClient http;
+  WiFiClientSecure client;
   
   if (params->isActivation) {
     String url = params->url + "/api/start-call";
     Serial.print("[Task] Triggering Backend Alert: ");
     Serial.println(url);
     
-    http.begin(url);
+    if (url.startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, url);
+    } else {
+      http.begin(url);
+    }
     http.addHeader("Content-Type", "application/json");
     
     String payload = "{\"pole\":\"controller-01\",\"latitude\":" + String(params->lat, 6) + ",\"longitude\":" + String(params->lng, 6) + "}";
@@ -98,7 +105,12 @@ void backendAlertTask(void *pvParameters) {
     Serial.print("[Task] Clearing Backend Alert: ");
     Serial.println(url);
     
-    http.begin(url);
+    if (url.startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, url);
+    } else {
+      http.begin(url);
+    }
     int responseCode = http.POST("");
     Serial.print("[Task] Backend end-call response: ");
     Serial.println(responseCode);
@@ -112,8 +124,14 @@ void backendAlertTask(void *pvParameters) {
 void checkBackendStatusTask(void *pvParameters) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
+    WiFiClientSecure client;
     String url = String(backendServer) + "/api/call-state";
-    http.begin(url);
+    if (url.startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, url);
+    } else {
+      http.begin(url);
+    }
     http.setTimeout(2000);
     
     int responseCode = http.GET();
@@ -137,8 +155,14 @@ void checkBackendStatusTask(void *pvParameters) {
 void syncCameraIPs() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
+    WiFiClientSecure client;
     String url = String(backendServer) + "/api/devices";
-    http.begin(url);
+    if (url.startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, url);
+    } else {
+      http.begin(url);
+    }
     http.setTimeout(3000);
     
     int httpResponseCode = http.GET();
@@ -332,7 +356,14 @@ void handleEmergencyOff() {
 void registerDevice() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    http.begin(String(backendServer) + "/api/device/register");
+    WiFiClientSecure client;
+    String url = String(backendServer) + "/api/device/register";
+    if (url.startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, url);
+    } else {
+      http.begin(url);
+    }
     http.addHeader("Content-Type", "application/json");
 
     String payload = "{\"deviceId\":\"controller-01\",\"deviceType\":\"controller\",\"mac\":\"" + WiFi.macAddress() + "\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
@@ -347,7 +378,14 @@ void registerDevice() {
 void sendHeartbeat() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    http.begin(String(backendServer) + "/api/device/heartbeat");
+    WiFiClientSecure client;
+    String url = String(backendServer) + "/api/device/heartbeat";
+    if (url.startsWith("https")) {
+      client.setInsecure();
+      http.begin(client, url);
+    } else {
+      http.begin(url);
+    }
     http.addHeader("Content-Type", "application/json");
 
     String payload = "{\"deviceId\":\"controller-01\",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
