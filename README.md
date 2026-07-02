@@ -25,7 +25,7 @@ An integrated, enterprise-grade IoT security solution that coordinates hardware 
 │   ├── package.json        
 │   └── .env                # Twilio, Supabase & Port configurations
 │
-├── Camera-1/               # ESP32-CAM Firmware
+├── Camera/               # ESP32-CAM Firmware
 │   └── CameraWebServer/    
 │       ├── CameraWebServer.ino   # Camera sketch (HTTPS/CORS enabled)
 │       └── app_httpd.cpp         # Camera web server endpoints
@@ -191,6 +191,8 @@ To save snapshots from the cameras straight to Google Drive:
 ---
 
 ## 🔌 Hardware Schematics & Wiring Connections
+
+![CrimeShield Circuit Schematic](./circuit_schematic.png)
 
 ### 1. Main ESP32 Controller Wiring Diagram
 Below is the wiring schematic for the main ESP32 controller node, connecting the Neo-6M GPS sensor, panic button, alert LEDs, and buzzer:
